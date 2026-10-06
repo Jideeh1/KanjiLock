@@ -36,6 +36,7 @@ made it cuz i kept forgeting to study and i look at my lock screen like 200 time
 <b>decks</b> · anki, kotoba and ankidroid<br><br>
 <b>progress</b> · streaks, flame calendar, stats<br><br>
 <b>widgets</b> · word card, kanji tile, streak, cards due<br><br>
+<b>themes</b> · 6 of them, 5 dark and 1 light<br><br>
 <b>dictionary</b> · 218k words, fully offline
 
 </td>

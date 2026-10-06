@@ -1,5 +1,7 @@
 package com.jideeh.kanjilock
 
+import androidx.compose.runtime.SideEffect
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.ui.geometry.Offset
@@ -145,7 +147,19 @@ class MainActivity : ComponentActivity() {
         LockScreenNotifier.ensureChannel(this)
         DailyWordManager.ensureToday(this)
         AppNav.take(intent)
-        setContent { KanjiTheme { KanjiApp() } }
+        Ink.palette = Palettes.byId(Prefs.theme(this))
+        setContent {
+            //status bar icons have to flip for the light theme
+            val light = Ink.palette.light
+            val view = androidx.compose.ui.platform.LocalView.current
+            SideEffect {
+                androidx.core.view.WindowCompat.getInsetsController(window, view).apply {
+                    isAppearanceLightStatusBars = light
+                    isAppearanceLightNavigationBars = light
+                }
+            }
+            KanjiTheme { KanjiApp() }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -165,31 +179,75 @@ class MainActivity : ComponentActivity() {
 }
 
 //colors from the teal glass reference
+class Palette(
+    val id: String,
+    val name: String,
+    val bgTop: Color, val bgMid: Color, val bgBottom: Color,
+    val text: Color, val muted: Color, val faint: Color,
+    val light: Boolean = false,
+    val pill: Color = Color.White,
+    val onPill: Color = bgMid,
+    val again: Color = Color(0xFFE0605A),
+    val hard: Color = Color(0xFFD9A54A),
+    val good: Color = Color(0xFF3FA877),
+    val easy: Color = Color(0xFF5B9BD5),
+    val flame: Color = Color(0xFFFF9A3D),
+) {
+    private val ink = if (light) Color.Black else Color.White
+    val glass = ink.copy(alpha = if (light) 0.05f else 0.07f)
+    val glassHigh = ink.copy(alpha = if (light) 0.08f else 0.11f)
+    val glassStroke = ink.copy(alpha = if (light) 0.09f else 0.08f)
+    val flameEmpty = ink.copy(alpha = 0.2f)
+    val scrim = if (light) Color(0xF2F2EEE6) else Color(0xF0060B0C)
+}
+
+//all the themes, teal is the original one
+object Palettes {
+    val Teal = Palette("teal", "Teal", Color(0xFF111D20), Color(0xFF172629), Color(0xFF2A4247), Color(0xFFEDF3F3), Color(0xFF93A6A8), Color(0xFF63777A))
+    val Midnight = Palette("midnight", "Midnight", Color(0xFF0D1222), Color(0xFF141B31), Color(0xFF27324F), Color(0xFFEEF1FA), Color(0xFF9AA3BF), Color(0xFF66708C))
+    val Sakura = Palette("sakura", "Sakura", Color(0xFF1C1216), Color(0xFF28191F), Color(0xFF4B2C38), Color(0xFFF8EEF1), Color(0xFFB99BA6), Color(0xFF806771), flame = Color(0xFFFF8FA3))
+    val Matcha = Palette("matcha", "Matcha", Color(0xFF111912), Color(0xFF172219), Color(0xFF2E4430), Color(0xFFEEF4EC), Color(0xFF9DB09A), Color(0xFF687A66))
+    val Sumi = Palette("sumi", "Sumi", Color(0xFF0A0A0B), Color(0xFF111113), Color(0xFF222226), Color(0xFFF2F2F2), Color(0xFFA0A0A6), Color(0xFF6B6B70))
+    val Washi = Palette(
+        "washi", "Washi", Color(0xFFF6F3EC), Color(0xFFEEE9DE), Color(0xFFDCD3C1), Color(0xFF1E2427), Color(0xFF5B6466), Color(0xFF8A9193),
+        light = true, pill = Color(0xFF1E2427), onPill = Color(0xFFF6F3EC),
+        again = Color(0xFFC94A44), hard = Color(0xFFB07A1E), good = Color(0xFF2E8A5F), easy = Color(0xFF3F7DB8), flame = Color(0xFFE5791F)
+    )
+    val all = listOf(Teal, Midnight, Sakura, Matcha, Sumi, Washi)
+    fun byId(id: String) = all.firstOrNull { it.id == id } ?: Teal
+}
+
+//colors from the teal glass reference, now they follow whatever theme is picked
 object Ink {
-    val BgTop = Color(0xFF111D20)
-    val BgMid = Color(0xFF172629)
-    val BgBottom = Color(0xFF2A4247)
+    var palette by mutableStateOf(Palettes.Teal)
 
-    val Glass = Color(0x12FFFFFF)
-    val GlassHigh = Color(0x1CFFFFFF)
-    val GlassStroke = Color(0x14FFFFFF)
+    val BgTop get() = palette.bgTop
+    val BgMid get() = palette.bgMid
+    val BgBottom get() = palette.bgBottom
 
-    val Text = Color(0xFFEDF3F3)
-    val Muted = Color(0xFF93A6A8)
-    val Faint = Color(0xFF63777A)
-    val OnWhite = Color(0xFF172427)
+    val Glass get() = palette.glass
+    val GlassHigh get() = palette.glassHigh
+    val GlassStroke get() = palette.glassStroke
 
-    val Reject = Color(0xFFE0605A)
+    val Text get() = palette.text
+    val Muted get() = palette.muted
+    val Faint get() = palette.faint
+    val OnWhite get() = palette.onPill
+    val Pill get() = palette.pill
+    val FlameEmpty get() = palette.flameEmpty
+    val Scrim get() = palette.scrim
+
+    val Reject get() = palette.again
     val Reload = Color(0xFF56696C)
-    val Accept = Color(0xFF3FA877)
-    val Flame = Color(0xFFFF9A3D)
+    val Accept get() = palette.good
+    val Flame get() = palette.flame
 
-    val Again = Color(0xFFE0605A)
-    val Hard = Color(0xFFD9A54A)
-    val Good = Color(0xFF3FA877)
-    val Easy = Color(0xFF5B9BD5)
+    val Again get() = palette.again
+    val Hard get() = palette.hard
+    val Good get() = palette.good
+    val Easy get() = palette.easy
 
-    val background = Brush.verticalGradient(0f to BgTop, 0.45f to BgMid, 1f to BgBottom)
+    val background get() = Brush.verticalGradient(0f to BgTop, 0.45f to BgMid, 1f to BgBottom)
 }
 
 @OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
@@ -201,32 +259,38 @@ private fun inter(weight: Int) = Font(
 
 val Inter = FontFamily(inter(300), inter(400), inter(500), inter(600), inter(700))
 
-private val Colors = darkColorScheme(
-    primary = Color(0xFFEDF3F3),
-    onPrimary = Ink.OnWhite,
-    primaryContainer = Color(0xFF2E4448),
-    onPrimaryContainer = Ink.Text,
-    secondary = Ink.Muted,
-    secondaryContainer = Color(0xFF2B3E41),
-    onSecondaryContainer = Ink.Text,
-    tertiary = Ink.Flame,
+private fun schemeFor(p: Palette) = if (p.light) lightColorScheme(
+    primary = p.text, onPrimary = p.onPill, secondary = p.muted, tertiary = p.flame,
+    background = p.bgMid, onBackground = p.text, surface = p.bgMid, onSurface = p.text,
+    surfaceVariant = p.bgBottom, onSurfaceVariant = p.muted, surfaceContainer = p.bgMid,
+    surfaceContainerHigh = p.bgBottom, surfaceContainerHighest = p.bgBottom,
+    outline = p.faint, outlineVariant = p.glassStroke, error = p.again,
+) else darkColorScheme(
+    primary = p.text,
+    onPrimary = p.onPill,
+    primaryContainer = p.bgBottom,
+    onPrimaryContainer = p.text,
+    secondary = p.muted,
+    secondaryContainer = p.bgBottom,
+    onSecondaryContainer = p.text,
+    tertiary = p.flame,
     tertiaryContainer = Color(0xFF3A3328),
     onTertiaryContainer = Color(0xFFFFD8B0),
-    background = Ink.BgMid,
-    onBackground = Ink.Text,
-    surface = Color(0xFF1A2A2D),
-    onSurface = Ink.Text,
-    surfaceVariant = Color(0xFF243538),
-    onSurfaceVariant = Ink.Muted,
-    surfaceContainerLowest = Color(0xFF13201F),
-    surfaceContainerLow = Color(0xFF1A2A2D),
-    surfaceContainer = Color(0xFF1E2F32),
-    surfaceContainerHigh = Color(0xFF243639),
-    surfaceContainerHighest = Color(0xFF2C3F42),
-    inverseSurface = Color(0xFFEDF3F3),
-    inverseOnSurface = Ink.OnWhite,
-    outline = Color(0xFF4A5E61),
-    outlineVariant = Color(0xFF2F4245),
+    background = p.bgMid,
+    onBackground = p.text,
+    surface = p.bgMid,
+    onSurface = p.text,
+    surfaceVariant = p.bgBottom,
+    onSurfaceVariant = p.muted,
+    surfaceContainerLowest = p.bgTop,
+    surfaceContainerLow = p.bgMid,
+    surfaceContainer = p.bgMid,
+    surfaceContainerHigh = p.bgBottom,
+    surfaceContainerHighest = p.bgBottom,
+    inverseSurface = p.text,
+    inverseOnSurface = p.onPill,
+    outline = p.faint,
+    outlineVariant = p.glassStroke,
     error = Color(0xFFF08A84),
     errorContainer = Color(0xFF4A2725),
     onErrorContainer = Color(0xFFFFDAD6),
@@ -271,7 +335,8 @@ val JapaneseText = TextStyle(localeList = JapaneseLocale)
 
 @Composable
 fun KanjiTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = Colors, typography = Type, shapes = AppShapes, content = content)
+    val p = Ink.palette
+    MaterialTheme(colorScheme = remember(p) { schemeFor(p) }, typography = Type, shapes = AppShapes, content = content)
 }
 
 
@@ -353,7 +418,7 @@ fun GlassIconButton(
     tint: Color? = null,
     onClick: () -> Unit
 ) {
-    val bg by animateColorAsState(if (selected) Color.White else Ink.GlassHigh, label = "gib")
+    val bg by animateColorAsState(if (selected) Ink.Pill else Ink.GlassHigh, label = "gib")
     Box(
         modifier
             .size(size)
@@ -376,7 +441,7 @@ fun WhitePill(text: String, modifier: Modifier = Modifier, enabled: Boolean = tr
         onClick = onClick,
         enabled = enabled,
         shape = RoundedCornerShape(12.dp),
-        color = if (enabled) Color.White else Ink.GlassHigh,
+        color = if (enabled) Ink.Pill else Ink.GlassHigh,
         contentColor = if (enabled) Ink.OnWhite else Ink.Faint,
         modifier = modifier
     ) {
@@ -432,7 +497,7 @@ fun PillTabs(
     ) {
         options.forEachIndexed { i, label ->
             val on = i == selected
-            val bg by animateColorAsState(if (on) Color.White else Color.Transparent, label = "pill")
+            val bg by animateColorAsState(if (on) Ink.Pill else Color.Transparent, label = "pill")
             Row(
                 Modifier
                     .then(if (scroll) Modifier else Modifier.weight(1f))
@@ -514,7 +579,7 @@ fun KanjiTile(text: String, size: Dp = 52.dp, highlight: Boolean = false) {
         Modifier
             .size(size)
             .clip(RoundedCornerShape(12.dp))
-            .background(if (highlight) Color(0x22FFFFFF) else Ink.GlassHigh),
+            .background(if (highlight) Ink.Pill.copy(alpha = 0.14f) else Ink.GlassHigh),
         contentAlignment = Alignment.Center
     ) {
         Text(text, style = KanjiStyle.copy(fontSize = fs), color = Ink.Text, maxLines = 1)
@@ -654,7 +719,7 @@ private fun DayCell(d: Calendar, active: Map<String, ActivityLog.Day>, goal: Int
 @Composable
 fun FlameGauge(fill: Float, modifier: Modifier) {
     Box(modifier) {
-        Icon(Ic.flame, null, tint = androidx.compose.ui.graphics.Color(0x33FFFFFF), modifier = Modifier.matchParentSize())
+        Icon(Ic.flame, null, tint = Ink.FlameEmpty, modifier = Modifier.matchParentSize())
         if (fill > 0f) {
             Icon(
                 Ic.flame, null, tint = Ink.Flame,

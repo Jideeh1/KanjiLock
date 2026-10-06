@@ -562,13 +562,9 @@ class KanjiWidgetProvider : AppWidgetProvider() {
         private fun layout(ctx: Context, layoutId: Int, requestBase: Int): RemoteViews {
             val rv = RemoteViews(ctx.packageName, layoutId)
             CardBinder.bind(ctx, rv, layoutId, requestBase)
-            val bg = when (Prefs.widgetBg(ctx)) {
-                Prefs.BG_SEMI -> R.drawable.widget_bg_semi
-                Prefs.BG_CLEAR -> R.drawable.widget_bg_clear
-                else -> R.drawable.widget_bg
-            }
+            val bg = Widgets.bgRes(ctx)
             rv.setInt(R.id.widget_root, "setBackgroundResource", bg)
-            if (bg != R.drawable.widget_bg) {
+            if (Prefs.widgetBg(ctx) != Prefs.BG_SOLID) {
                 rv.setTextColor(R.id.tv_reading, 0xFFFFFFFF.toInt())
                 rv.setTextColor(R.id.tv_status, 0xFFFFFFFF.toInt())
                 if (layoutId == R.layout.widget_kanji) rv.setTextColor(R.id.tv_example, 0xF2FFFFFF.toInt())
@@ -1035,16 +1031,19 @@ object Widgets {
         runCatching { ids(StudyWidget::class.java).forEach { mgr.updateAppWidget(it, study(ctx)) } }
     }
 
+    //dark is for light wallpapers, same 3 styles just a lot darker behind the text
+    fun bgRes(ctx: Context): Int {
+        val dark = Prefs.widgetDark(ctx)
+        return when (Prefs.widgetBg(ctx)) {
+            Prefs.BG_SEMI -> if (dark) R.drawable.widget_bg_semi_dark else R.drawable.widget_bg_semi
+            Prefs.BG_CLEAR -> if (dark) R.drawable.widget_bg_clear_dark else R.drawable.widget_bg_clear
+            else -> if (dark) R.drawable.widget_bg_dark else R.drawable.widget_bg
+        }
+    }
+
     private fun base(ctx: Context, layout: Int): RemoteViews {
         val rv = RemoteViews(ctx.packageName, layout)
-        rv.setInt(
-            R.id.widget_root, "setBackgroundResource",
-            when (Prefs.widgetBg(ctx)) {
-                Prefs.BG_SEMI -> R.drawable.widget_bg_semi
-                Prefs.BG_CLEAR -> R.drawable.widget_bg_clear
-                else -> R.drawable.widget_bg
-            }
-        )
+        rv.setInt(R.id.widget_root, "setBackgroundResource", bgRes(ctx))
         return rv
     }
 

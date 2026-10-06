@@ -397,4 +397,8 @@
     <string name="update_checking">Checking…</string>
     <string name="update_latest">You\'re on the latest version</string>
     <string name="update_check_failed">Couldn\'t reach GitHub. Try again later.</string>
+    <!--themes-->
+    <string name="section_theme">Theme</string>
+    <string name="widget_dark_title">Dark widgets</string>
+    <string name="widget_dark_sub">Darker background so the text stays readable on light wallpapers</string>
 </resources>

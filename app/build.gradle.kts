@@ -13,8 +13,8 @@ android {
         applicationId = "com.jideeh.kanjilock"
         minSdk = 26
         targetSdk = 37
-        versionCode = 7
-        versionName = "1.1.0"
+        versionCode = 8
+        versionName = "1.2.0"
     }
 
     //put ur own key in keystore.properties (never commit it), otherwise release uses the debug key

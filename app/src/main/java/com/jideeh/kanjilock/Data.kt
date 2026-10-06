@@ -100,6 +100,10 @@ object Prefs {
     const val BG_CLEAR = "CLEAR"
 
     fun widgetBg(ctx: Context): String = sp(ctx).getString("widget_bg", BG_SOLID) ?: BG_SOLID
+    fun widgetDark(ctx: Context): Boolean = sp(ctx).getBoolean("widget_dark", false)
+    fun setWidgetDark(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("widget_dark", v).apply()
+    fun theme(ctx: Context): String = sp(ctx).getString("theme", "teal") ?: "teal"
+    fun setTheme(ctx: Context, id: String) = sp(ctx).edit().putString("theme", id).apply()
     fun setWidgetBg(ctx: Context, v: String) = sp(ctx).edit().putString("widget_bg", v).apply()
 
     fun newPerDay(ctx: Context): Int = sp(ctx).getInt("new_per_day", 10).coerceIn(0, 999)
@@ -166,7 +170,7 @@ object Prefs {
     fun exportSettings(ctx: Context): Map<String, Any> = mapOf(
         KEY_WORDS_PER_DAY to wordsPerDay(ctx), KEY_SOURCE to source(ctx), KEY_DISPLAY_MODE to displayMode(ctx),
         KEY_LOCK_NOTIF to lockNotif(ctx), KEY_NOTIF_NUDGE to notifNudge(ctx), "widget_bg" to widgetBg(ctx),
-        "new_per_day" to newPerDay(ctx), "sfx" to sfx(ctx), "vibrate" to vibrate(ctx), "daily_goal" to dailyGoal(ctx),
+        "new_per_day" to newPerDay(ctx), "sfx" to sfx(ctx), "vibrate" to vibrate(ctx), "theme" to theme(ctx), "widget_dark" to widgetDark(ctx), "daily_goal" to dailyGoal(ctx),
         "remind_daily" to remindDaily(ctx), "remind_minutes" to remindMinutes(ctx),
         "remind_streak" to remindStreak(ctx), "streak_minutes" to streakMinutes(ctx)
     )
@@ -182,6 +186,8 @@ object Prefs {
         (m["new_per_day"] as? Number)?.let { e.putInt("new_per_day", it.toInt()) }
         (m["sfx"] as? Boolean)?.let { e.putBoolean("sfx", it) }
         (m["vibrate"] as? Boolean)?.let { e.putBoolean("vibrate", it) }
+        (m["theme"] as? String)?.let { e.putString("theme", it) }
+        (m["widget_dark"] as? Boolean)?.let { e.putBoolean("widget_dark", it) }
         (m["daily_goal"] as? Number)?.let { e.putInt("daily_goal", it.toInt()) }
         (m["remind_daily"] as? Boolean)?.let { e.putBoolean("remind_daily", it) }
         (m["remind_minutes"] as? Number)?.let { e.putInt("remind_minutes", it.toInt()) }

@@ -1,5 +1,9 @@
 package com.jideeh.kanjilock
 
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.RowScope
@@ -392,7 +396,7 @@ private fun WordBody(w: Word, accepted: Boolean, rejected: Boolean) {
                     .widthIn(min = 104.dp)
                     .heightIn(min = 104.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(Color(0x14FFFFFF))
+                    .background(Ink.GlassStroke)
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -618,7 +622,8 @@ fun StudyScreen(tick: Int) {
             onSelect = { select(it) },
             onImportAnki = { ankiPicker.launch(arrayOf("application/octet-stream", "application/zip", "application/apkg", "*/*")) },
             onImportKotoba = { kotobaPicker.launch(arrayOf("text/*", "text/csv", "text/comma-separated-values", "text/tab-separated-values")) },
-            onLinkAnkiDroid = { ankiSheet = null; ankiSheetOpen = true }
+            onLinkAnkiDroid = { ankiSheet = null; ankiSheetOpen = true },
+            version = tick + local
         )
         Spacer(Modifier.height(10.dp))
 
@@ -888,14 +893,16 @@ fun DeckShelf(
     onSelect: (String) -> Unit,
     onImportAnki: () -> Unit,
     onImportKotoba: () -> Unit,
-    onLinkAnkiDroid: () -> Unit
+    onLinkAnkiDroid: () -> Unit,
+    version: Int = 0
 ) {
     val ctx = LocalContext.current
     var menu by remember { mutableStateOf(false) }
     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         items(decks, key = { it.id }) { d ->
             val on = d.id == selected
-            val counts = remember(d.id, d.cardCount) {
+            //recount after every answer or the tile keeps showing the old new card number
+            val counts = remember(d.id, d.cardCount, version) {
                 if (d.isLinked) null else Study.queue(ctx, d.id).let { Triple(it.newLeft, it.learning, it.review) }
             }
             Column(
@@ -904,7 +911,7 @@ fun DeckShelf(
                     .height(116.dp)
                     .clip(RoundedCornerShape(18.dp))
                     .background(if (on) Ink.GlassHigh else Ink.Glass)
-                    .border(if (on) 1.5.dp else 1.dp, if (on) Color.White.copy(alpha = 0.85f) else Ink.GlassStroke, RoundedCornerShape(18.dp))
+                    .border(if (on) 1.5.dp else 1.dp, if (on) Ink.Pill.copy(alpha = 0.85f) else Ink.GlassStroke, RoundedCornerShape(18.dp))
                     .clickable { onSelect(d.id) }
                     .padding(14.dp)
             ) {
@@ -1195,7 +1202,7 @@ private fun PracticeSession(deck: Deck, focusOpen: Boolean, onCloseFocus: () -> 
                 AnswerField(st, keepKeyboard = true, focusRequester = focusReq, bring = bring, onChange = { checkTyped() }, onSubmit = { submit() })
                 AnimatedVisibility(st.revealed, enter = fadeIn() + expandVertically()) { RevealBlock(st, showVerdict = false) }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.followReveal(st.revealed), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (previous != null) GlassIconButton(Ic.chevronLeft, stringResource(R.string.previous_cd), size = 46.dp, onClick = previous)
                 WhitePill(stringResource(if (st.revealed) R.string.practice_next else R.string.practice_show), Modifier.weight(1f)) { show() }
                 GhostPill(stringResource(R.string.practice_skip)) { advance() }
@@ -1295,7 +1302,8 @@ private fun AnswerField(
             onChange()
         },
         enabled = keepKeyboard || !st.revealed,
-        readOnly = st.revealed || !st.canType,
+        //flipping readOnly restarts the keyboard, so when it has to stay open the field just ignores input instead
+        readOnly = !st.canType || (!keepKeyboard && st.revealed),
         singleLine = true,
         textStyle = TextStyle(color = Ink.Text, fontSize = 22.sp, textAlign = TextAlign.Center).merge(JapaneseText),
         cursorBrush = SolidColor(Ink.Text),
@@ -1397,12 +1405,25 @@ fun Flashcard(
             AnimatedVisibility(st.revealed, enter = fadeIn() + expandVertically()) { RevealBlock(st) }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.followReveal(st.revealed), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             if (onPrevious != null) GlassIconButton(Ic.chevronLeft, stringResource(R.string.previous_cd), size = 46.dp, onClick = onPrevious)
             if (!st.revealed) WhitePill(stringResource(R.string.show_answer), Modifier.weight(1f)) { reveal() }
             else GradeRow(labels, buttons, true, Modifier.weight(1f), onGrade)
         }
     }
+}
+
+//once the answer opens up, scroll so the buttons under it arent hidden behind the nav bar
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun Modifier.followReveal(revealed: Boolean): Modifier {
+    val bring = remember { BringIntoViewRequester() }
+    var h by remember { mutableIntStateOf(0) }
+    val extra = with(LocalDensity.current) { 120.dp.toPx() }
+    LaunchedEffect(revealed) {
+        if (revealed) { delay(320); bring.bringIntoView(Rect(0f, 0f, 1f, h + extra)) }
+    }
+    return this.bringIntoViewRequester(bring).onSizeChanged { h = it.height }
 }
 
 @Composable
@@ -1506,7 +1527,7 @@ fun FocusBody(
     Box(
         Modifier
             .fillMaxSize()
-            .background(Color(0xF0060B0C))
+            .background(Ink.Scrim)
             .pointerInput(Unit) { detectTapGestures { focus.clearFocus() } }
             .systemBarsPadding()
             .imePadding(),
@@ -1578,7 +1599,7 @@ fun InsightsBody(ins: Study.Insights) {
                     Box(
                         Modifier.fillMaxWidth().height((44f * v / max).dp.coerceAtLeast(3.dp))
                             .clip(RoundedCornerShape(5.dp))
-                            .background(if (i == 0) Color.White else Ink.GlassHigh)
+                            .background(if (i == 0) Ink.Pill else Ink.GlassHigh)
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(if (i == 0) stringResource(R.string.today_short) else "+$i", style = MaterialTheme.typography.labelSmall, color = Ink.Faint)
@@ -1590,7 +1611,7 @@ fun InsightsBody(ins: Study.Insights) {
             Legend(Ink.Easy, stringResource(R.string.count_new), ins.newCount)
             Legend(Ink.Hard, stringResource(R.string.count_learning), ins.learning)
             Legend(Ink.Good, stringResource(R.string.young), ins.young)
-            Legend(Color.White, stringResource(R.string.mature), ins.mature)
+            Legend(Ink.Pill, stringResource(R.string.mature), ins.mature)
         }
         if (ins.leeches.isNotEmpty()) {
             Spacer(Modifier.height(14.dp))
@@ -1792,7 +1813,7 @@ private fun DecksPane(decks: List<Deck>) {
                 Row(
                     Modifier
                         .clip(CircleShape)
-                        .background(if (on) Color.White else Ink.Glass)
+                        .background(if (on) Ink.Pill else Ink.Glass)
                         .border(1.dp, if (on) Color.Transparent else Ink.GlassStroke, CircleShape)
                         .clickable { pick = d.id }
                         .padding(horizontal = 12.dp, vertical = 7.dp),
@@ -2062,6 +2083,7 @@ fun SettingsScreen(tick: Int, snackbar: SnackbarHostState) {
     var goal by remember { mutableIntStateOf(Prefs.dailyGoal(ctx)) }
     var sfx by remember { mutableStateOf(Prefs.sfx(ctx)) }
     var vibrate by remember { mutableStateOf(Prefs.vibrate(ctx)) }
+    var widgetDark by remember { mutableStateOf(Prefs.widgetDark(ctx)) }
     var remindDaily by remember { mutableStateOf(Prefs.remindDaily(ctx)) }
     var remindStreak by remember { mutableStateOf(Prefs.remindStreak(ctx)) }
     var remindAt by remember { mutableIntStateOf(Prefs.remindMinutes(ctx)) }
@@ -2143,12 +2165,18 @@ fun SettingsScreen(tick: Int, snackbar: SnackbarHostState) {
                 DriveRow(tick)
             }
 
+            Section(stringResource(R.string.section_theme)) { ThemePicker() }
+
             Section(stringResource(R.string.section_lock)) {
                 Choice(
                     stringResource(R.string.widget_bg_label),
                     listOf(Prefs.BG_SOLID to R.string.bg_solid, Prefs.BG_SEMI to R.string.bg_semi, Prefs.BG_CLEAR to R.string.bg_clear),
                     widgetBg
-                ) { widgetBg = it; Prefs.setWidgetBg(ctx, it); KanjiWidgetProvider.updateAll(ctx) }
+                ) { widgetBg = it; Prefs.setWidgetBg(ctx, it); DailyWordManager.refresh(ctx) }
+                Divider()
+                ToggleRow(stringResource(R.string.widget_dark_title), stringResource(R.string.widget_dark_sub), widgetDark) {
+                    widgetDark = it; Prefs.setWidgetDark(ctx, it); DailyWordManager.refresh(ctx)
+                }
                 Divider()
                 ToggleRow(stringResource(R.string.lock_notif_label), stringResource(R.string.lock_notif_hint), lockNotif) {
                     lockNotif = it; Prefs.setLockNotif(ctx, it)
@@ -2172,7 +2200,7 @@ fun SettingsScreen(tick: Int, snackbar: SnackbarHostState) {
                             onValueChangeFinished = { Prefs.setNotifNudge(ctx, nudge.roundToInt()); LockScreenNotifier.refresh(ctx) },
                             valueRange = 0f..96f, steps = 23,
                             colors = SliderDefaults.colors(
-                                thumbColor = Color.White, activeTrackColor = Color.White, inactiveTrackColor = Ink.GlassHigh,
+                                thumbColor = Ink.Pill, activeTrackColor = Ink.Pill, inactiveTrackColor = Ink.GlassHigh,
                                 activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent
                             )
                         )
@@ -2303,7 +2331,7 @@ private fun ToggleRow(title: String, subtitle: String, checked: Boolean, onChang
         Switch(
             checked = checked, onCheckedChange = onChange,
             colors = SwitchDefaults.colors(
-                checkedTrackColor = Color.White, checkedThumbColor = Ink.OnWhite,
+                checkedTrackColor = Ink.Pill, checkedThumbColor = Ink.OnWhite,
                 uncheckedTrackColor = Ink.Glass, uncheckedThumbColor = Ink.Muted, uncheckedBorderColor = Ink.GlassStroke
             )
         )
@@ -2355,7 +2383,7 @@ private fun ReminderRow(title: String, sub: String, on: Boolean, minutes: Int, o
         Switch(
             checked = on, onCheckedChange = onToggle,
             colors = SwitchDefaults.colors(
-                checkedTrackColor = Color.White, checkedThumbColor = Ink.OnWhite,
+                checkedTrackColor = Ink.Pill, checkedThumbColor = Ink.OnWhite,
                 uncheckedTrackColor = Ink.Glass, uncheckedThumbColor = Ink.Muted, uncheckedBorderColor = Ink.GlassStroke
             )
         )
@@ -2373,9 +2401,9 @@ private fun TimeDialog(initial: Int, onDismiss: () -> Unit, onPick: (Int) -> Uni
             androidx.compose.material3.TimePicker(
                 state = state,
                 colors = androidx.compose.material3.TimePickerDefaults.colors(
-                    clockDialColor = Ink.Glass, selectorColor = Color.White, clockDialSelectedContentColor = Ink.OnWhite,
-                    timeSelectorSelectedContainerColor = Color.White, timeSelectorSelectedContentColor = Ink.OnWhite,
-                    timeSelectorUnselectedContainerColor = Ink.Glass, periodSelectorSelectedContainerColor = Color.White,
+                    clockDialColor = Ink.Glass, selectorColor = Ink.Pill, clockDialSelectedContentColor = Ink.OnWhite,
+                    timeSelectorSelectedContainerColor = Ink.Pill, timeSelectorSelectedContentColor = Ink.OnWhite,
+                    timeSelectorUnselectedContainerColor = Ink.Glass, periodSelectorSelectedContainerColor = Ink.Pill,
                     periodSelectorSelectedContentColor = Ink.OnWhite
                 )
             )
@@ -2385,6 +2413,39 @@ private fun TimeDialog(initial: Int, onDismiss: () -> Unit, onPick: (Int) -> Uni
     )
 }
 
+
+//little previews of each theme, tap one and the whole app switches
+@Composable
+private fun ThemePicker() {
+    val ctx = LocalContext.current
+    LazyRow(contentPadding = PaddingValues(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        items(Palettes.all, key = { it.id }) { p ->
+            val on = Ink.palette.id == p.id
+            Column(
+                Modifier
+                    .width(86.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .border(if (on) 2.dp else 1.dp, if (on) Ink.Pill else Ink.GlassStroke, RoundedCornerShape(16.dp))
+                    .clickable { Ink.palette = p; Prefs.setTheme(ctx, p.id) }
+                    .padding(6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(11.dp))
+                        .background(Brush.verticalGradient(listOf(p.bgTop, p.bgMid, p.bgBottom))),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("字", style = KanjiStyle.copy(fontSize = 26.sp), color = p.text)
+                    Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        listOf(p.again, p.hard, p.good, p.easy).forEach { Box(Modifier.size(6.dp).clip(CircleShape).background(it)) }
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(p.name, style = MaterialTheme.typography.labelMedium, color = if (on) Ink.Text else Ink.Muted)
+            }
+        }
+    }
+}
 
 //update checker in settings, same popup as the one on launch
 @Composable
