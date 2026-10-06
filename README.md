@@ -29,29 +29,20 @@ made it cuz i kept forgeting to study and i look at my lock screen like 200 time
 
 <table>
 <tr>
-<td width="50%" valign="top">
+<td width="55%" valign="middle">
 
-<b>daily word</b><br>
-widget for the home screen and lock screen, plus a lock screen notification. words per day is up to you
-<br><br>
-<b>study</b><br>
-anki style reviews. type the reading in romaji and it turns into kana as you type
-<br><br>
-<b>decks</b><br>
-import anki <code>.apkg</code> or kotoba <code>.csv</code>, or link ankidroid so reviews sync to ankiweb
-<br><br>
-<b>progress</b><br>
-streak calendar where every day is a flame that fills up, plus retention stats
-<br><br>
-<b>dictionary</b><br>
-218k words and 3k kanji, works fully offline
+<b>daily word</b> · home and lock screen widget<br><br>
+<b>study</b> · anki style reviews, type in romaji<br><br>
+<b>decks</b> · anki, kotoba and ankidroid<br><br>
+<b>progress</b> · streaks, flame calendar, stats<br>
+<b>dictionary</b> · 218k words, fully offline
 
 </td>
-<td width="50%" valign="top" align="center">
+<td width="45%" valign="middle" align="center">
 
 <img src="docs/widget.png" width="100%" alt="home screen widget">
 
-<sub>red X rejects it, gray rerolls, green keeps it</sub>
+<sub>X rejects, gray rerolls, check keeps</sub>
 
 </td>
 </tr>
