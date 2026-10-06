@@ -278,3 +278,76 @@ class UpdaterAndTypingTest {
         assertTrue(Romaji.onTrack("", a))
     }
 }
+
+class JdbcSink(f: File) : SqlSink {
+    private val c = DriverManager.getConnection("jdbc:sqlite:${f.absolutePath}")
+    override fun exec(sql: String, args: List<Any?>) {
+        c.prepareStatement(sql).use { st -> args.forEachIndexed { i, a -> st.setObject(i + 1, a) }; st.execute() }
+    }
+    override fun close() = c.close()
+}
+
+class V2Test {
+    private val tmp = File(System.getProperty("java.io.tmpdir"), "kl-test2").apply { mkdirs() }
+
+    @Test fun apkgRoundTrip() {
+        val notes = listOf(
+            ApkgWriter.Note("食べる|たべる", "食べる", "たべる", "to eat", "パンを食べる"),
+            ApkgWriter.Note("学校|がっこう", "学校", "がっこう", "school & study", ""),
+            ApkgWriter.Note("約束|やくそく", "約束", "やくそく", "promise <vow>", "")
+        )
+        val out = java.io.ByteArrayOutputStream()
+        ApkgWriter.write("KanjiLock", notes, out, tmp) { JdbcSink(it) }
+        val names = java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(out.toByteArray())).use { z ->
+            generateSequence { z.nextEntry }.map { it.name }.toList()
+        }
+        assertEquals(listOf("collection.anki2", "media"), names)
+        File(tmp, "out.apkg").writeBytes(out.toByteArray()) //copy to open in real anki if u wanna check by hand
+
+        val r = ApkgParser.parse(java.io.ByteArrayInputStream(out.toByteArray()), tmp) { JdbcSource(it) }
+        assertEquals("KanjiLock", r.deckName)
+        assertEquals(3, r.cards.size)
+        val t = r.cards.first { it.front == "食べる" }
+        assertEquals("たべる", t.reading)
+        assertEquals("to eat", t.meaning)
+        assertEquals("school & study", r.cards.first { it.front == "学校" }.meaning)
+        assertEquals("promise <vow>", r.cards.first { it.front == "約束" }.meaning)
+    }
+
+    @Test fun csumMatchesAnki() {
+        //same as anki, first 8 hex of the sha1 as a number
+        val hex = java.security.MessageDigest.getInstance("SHA-1").digest("食べる".toByteArray()).joinToString("") { "%02x".format(it) }
+        assertEquals(hex.take(8).toLong(16), ApkgWriter.csum("食べる"))
+        assertEquals(ApkgWriter.guid("a"), ApkgWriter.guid("a"))
+    }
+
+    @Test fun fourChoicesOneRight() {
+        val pool = (1..6).map { DeckCard("c$it", "字$it", "じ", "meaning $it") } + DeckCard("dup", "字7", "じ", "Meaning 1")
+        repeat(20) { seed ->
+            val card = pool[seed % 6]
+            val c = Study.choices(pool, card, reverse = false, rnd = kotlin.random.Random(seed))
+            assertEquals(4, c.size)
+            assertEquals(1, c.count { it == card.meaning })
+            assertEquals(4, c.map { it.lowercase() }.distinct().size)
+            val r = Study.choices(pool, card, reverse = true, rnd = kotlin.random.Random(seed))
+            assertEquals(1, r.count { it == card.front })
+        }
+        //same seed same order so going back looks the same
+        assertEquals(Study.choices(pool, pool[0], false, kotlin.random.Random(5)), Study.choices(pool, pool[0], false, kotlin.random.Random(5)))
+    }
+
+    @Test fun achievementsOnlyOnce() {
+        val p = Achievements.Progress(streak = 8, kept = 10, reviews = 99, mature = 0,
+            game = mapOf("reading" to GameStats.Mode(right = 60, best = 12), "listen" to GameStats.Mode(right = 3, best = 5)))
+        val first = Achievements.due(emptySet(), p).map { it.id }
+        assertEquals(listOf("streak_3", "streak_7", "kept_10", "reading_50", "reading_combo_10", "listen_combo_5"), first)
+        assertTrue(Achievements.due(first.toSet(), p).isEmpty())
+        assertEquals(Achievements.all.size, Achievements.all.map { it.id }.toSet().size)
+        //every kind has a name for each tier
+        Achievements.all.groupBy { it.kind }.forEach { (_, l) -> assertEquals(l.indices.toList(), l.map { it.tier }) }
+    }
+
+    @Test fun practiceHasTheFourGames() {
+        assertEquals(listOf("reading", "meaning", "reverse", "listen"), GameModes)
+    }
+}

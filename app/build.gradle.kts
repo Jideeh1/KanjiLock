@@ -13,8 +13,8 @@ android {
         applicationId = "com.jideeh.kanjilock"
         minSdk = 26
         targetSdk = 37
-        versionCode = 8
-        versionName = "1.2.0"
+        versionCode = 9
+        versionName = "2.0.0"
     }
 
     //put ur own key in keystore.properties (never commit it), otherwise release uses the debug key
@@ -35,6 +35,8 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            //phones are all arm, the x86 libs are just for emulators and double the size of the handwriting lib
+            ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
         }
     }
 
@@ -77,6 +79,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
     implementation("com.github.luben:zstd-jni:1.5.7-21@aar")
     implementation("com.google.android.gms:play-services-auth:21.6.0")
+    implementation("dev.chrisbanes.haze:haze:2.0.1")
+    implementation("dev.chrisbanes.haze:haze-blur:2.0.1")
+    implementation("com.google.mlkit:digital-ink-recognition:19.0.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.github.luben:zstd-jni:1.5.7-21")

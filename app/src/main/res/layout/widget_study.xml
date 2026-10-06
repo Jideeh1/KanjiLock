@@ -13,6 +13,10 @@
     android:paddingBottom="10dp">
 
     <TextView
+        android:shadowColor="#B3000000"
+        android:shadowDx="0"
+        android:shadowDy="1"
+        android:shadowRadius="8"
         android:id="@+id/tv_due"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -30,6 +34,10 @@
         android:orientation="vertical">
 
         <TextView
+            android:shadowColor="#B3000000"
+            android:shadowDx="0"
+            android:shadowDy="1"
+            android:shadowRadius="8"
             android:id="@+id/tv_due_label"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -40,6 +48,10 @@
             android:textSize="13sp" />
 
         <TextView
+            android:shadowColor="#B3000000"
+            android:shadowDx="0"
+            android:shadowDy="1"
+            android:shadowRadius="8"
             android:id="@+id/tv_due_sub"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -51,6 +63,10 @@
     </LinearLayout>
 
     <TextView
+        android:shadowColor="#B3000000"
+        android:shadowDx="0"
+        android:shadowDy="1"
+        android:shadowRadius="8"
         android:id="@+id/tv_study"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

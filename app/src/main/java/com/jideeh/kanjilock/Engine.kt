@@ -1,5 +1,8 @@
 package com.jideeh.kanjilock
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import android.app.Activity
 import android.app.AlarmManager
 import android.app.NotificationChannel
@@ -36,6 +39,15 @@ import com.google.android.gms.auth.api.identity.AuthorizationResult
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
 import com.jideeh.kanjilock.DailyWordManager.Status
+import com.google.android.gms.tasks.Task
+import com.google.mlkit.common.model.DownloadConditions
+import com.google.mlkit.common.model.RemoteModelManager
+import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognition
+import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognitionModel
+import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognitionModelIdentifier
+import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognizer
+import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognizerOptions
+import com.google.mlkit.vision.digitalink.recognition.Ink as MlInk
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -45,6 +57,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -275,10 +288,32 @@ object Study {
         return cards.filter { it.answers.isNotEmpty() }.shuffled()
     }
 
+    private fun allCards(ctx: Context, deck: Deck) = if (deck.isLinked) AnkiDroid.notes(ctx, deck.ankiDeckName) else DeckStore.cards(ctx, deck.id)
+
+    //listen needs something to say out loud
+    fun spoken(card: DeckCard): String = card.answers.firstOrNull { Romaji.hasKana(it) } ?: card.reading
+    fun listenCards(ctx: Context, deck: Deck): List<DeckCard> =
+        allCards(ctx, deck).filter { it.answers.isNotEmpty() && spoken(it).isNotBlank() }.shuffled()
+
+    //meaning and reverse need a front and a meaning on every card
+    fun choiceCards(ctx: Context, deck: Deck): List<DeckCard> =
+        allCards(ctx, deck).filter { it.front.isNotBlank() && it.meaning.isNotBlank() }.shuffled()
+
+    //the right one plus 3 others that dont look the same, shuffled
+    fun choices(pool: List<DeckCard>, card: DeckCard, reverse: Boolean, rnd: kotlin.random.Random = kotlin.random.Random): List<String> {
+        fun pick(c: DeckCard) = if (reverse) c.front.trim() else c.meaning.trim()
+        val right = pick(card)
+        val others = pool.asSequence().filter { it.id != card.id }.map { pick(it) }
+            .filter { it.isNotBlank() && !it.equals(right, ignoreCase = true) }
+            .distinctBy { it.lowercase() }.toList().shuffled(rnd).take(3)
+        return (others + right).shuffled(rnd)
+    }
+
     fun logReview(ctx: Context, grade: Int, stateBefore: Int, deckId: String) {
         RevLog.add(ctx, grade, stateBefore, deckId)
         ActivityLog.recordReview(ctx)
         DailyWordManager.refresh(ctx)
+        Achievements.announce(ctx)
     }
 
     //ankidroid decks not counted here, ankidroid does that
@@ -992,7 +1027,12 @@ object DriveSync {
 
 //little buzz when u type something wrong
 object Haptics {
-    fun wrong(ctx: Context) {
+    fun wrong(ctx: Context) = buzz(ctx, longArrayOf(0, 35, 60, 35))
+
+    //little double tap when an achievement pops
+    fun tick(ctx: Context) = buzz(ctx, longArrayOf(0, 18, 90, 28))
+
+    private fun buzz(ctx: Context, pattern: LongArray) {
         if (!Prefs.vibrate(ctx)) return
         val v = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             (ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
@@ -1000,7 +1040,7 @@ object Haptics {
             @Suppress("DEPRECATION") ctx.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
         } ?: return
         if (!v.hasVibrator()) return
-        runCatching { v.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 35, 60, 35), -1)) }
+        runCatching { v.vibrate(VibrationEffect.createWaveform(pattern, -1)) }
     }
 }
 
@@ -1029,6 +1069,12 @@ object Widgets {
         runCatching { ids(KanjiTileWidget::class.java).forEach { mgr.updateAppWidget(it, tile(ctx)) } }
         runCatching { ids(StreakWidget::class.java).forEach { mgr.updateAppWidget(it, streak(ctx)) } }
         runCatching { ids(StudyWidget::class.java).forEach { mgr.updateAppWidget(it, study(ctx)) } }
+    }
+
+    fun pin(ctx: Context, cls: Class<*>): Boolean {
+        val mgr = AppWidgetManager.getInstance(ctx)
+        if (!mgr.isRequestPinAppWidgetSupported) return false
+        return mgr.requestPinAppWidget(ComponentName(ctx, cls), null, null)
     }
 
     //dark is for light wallpapers, same 3 styles just a lot darker behind the text
@@ -1106,7 +1152,10 @@ object FlameArt {
         val m = Matrix().apply { setScale(size / 24f, size / 24f); postTranslate(x, y) }
         val p = Path(flame).apply { transform(m) }
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        //shadow so the flames still show on clear widgets over light wallpapers
+        paint.setShadowLayer(size * 0.12f, 0f, size * 0.03f, 0x80000000.toInt())
         paint.color = GRAY; c.drawPath(p, paint)
+        paint.clearShadowLayer()
         if (fill > 0f) {
             c.save()
             val top = y + size * (1f - fill.coerceIn(0f, 1f))
@@ -1118,7 +1167,7 @@ object FlameArt {
 
     fun single(fill: Float, px: Int): Bitmap {
         val b = Bitmap.createBitmap(px.coerceAtLeast(8), px.coerceAtLeast(8), Bitmap.Config.ARGB_8888)
-        draw(Canvas(b), 0f, 0f, px.toFloat(), fill)
+        draw(Canvas(b), px * 0.1f, px * 0.02f, px * 0.8f, fill)
         return b
     }
 
@@ -1129,7 +1178,10 @@ object FlameArt {
         val h = 50 * density
         val b = Bitmap.createBitmap((cell * 7).toInt(), h.toInt(), Bitmap.Config.ARGB_8888)
         val c = Canvas(b)
-        val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 10 * density; textAlign = Paint.Align.CENTER }
+        val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = 10 * density; textAlign = Paint.Align.CENTER
+            setShadowLayer(3 * density, 0f, density, 0xB3000000.toInt())
+        }
         val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -6) }
         val letters = SimpleDateFormat("EEE", Locale.getDefault())
         for (i in 0..6) {
@@ -1258,4 +1310,172 @@ object Updater {
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
         )
     }
+}
+
+//what u did in the game modes, totals and best runs in a row
+object GameStats {
+    data class Mode(val right: Int = 0, val best: Int = 0)
+
+    private fun file(ctx: Context) = File(ctx.filesDir, "game_stats.json")
+    private val lock = Any()
+
+    fun all(ctx: Context): Map<String, Mode> = synchronized(lock) {
+        val o = runCatching { JSONObject(file(ctx).readText()) }.getOrElse { JSONObject() }
+        o.keys().asSequence().associateWith { k -> o.getJSONObject(k).let { Mode(it.optInt("right"), it.optInt("best")) } }
+    }
+
+    fun flawless(ctx: Context): Int = all(ctx)["flawless"]?.right ?: 0
+
+    //one right answer on the first try, combo is how many in a row it is now
+    fun right(ctx: Context, mode: String, combo: Int) = edit(ctx, mode) { Mode(it.right + 1, maxOf(it.best, combo)) }
+
+    //finished a round of 20+ without missing once
+    fun flawlessRound(ctx: Context) = edit(ctx, "flawless") { Mode(it.right + 1, 0) }
+
+    private fun edit(ctx: Context, key: String, change: (Mode) -> Mode) = synchronized(lock) {
+        val o = runCatching { JSONObject(file(ctx).readText()) }.getOrElse { JSONObject() }
+        val old = o.optJSONObject(key)?.let { Mode(it.optInt("right"), it.optInt("best")) } ?: Mode()
+        val m = change(old)
+        o.put(key, JSONObject().put("right", m.right).put("best", m.best))
+        file(ctx).writeText(o.toString())
+    }
+}
+
+//steam style achievements, they pop up at the top when u get one
+object Achievements {
+    enum class Kind { STREAK, KEPT, REVIEWS, MATURE, READING, READING_COMBO, MEANING, MEANING_COMBO, REVERSE, REVERSE_COMBO, LISTEN, LISTEN_COMBO, FLAWLESS }
+    enum class Group { STREAK, WORDS, REVIEWS, READING, MEANING, REVERSE, LISTEN, SPECIAL }
+    data class A(val id: String, val kind: Kind, val goal: Int, val tier: Int)
+
+    private fun tiers(prefix: String, kind: Kind, goals: List<Int>) = goals.mapIndexed { i, g -> A("${prefix}_$g", kind, g, i) }
+
+    //old ids from 2.0 betas stay the same so nothing earned gets lost
+    val all: List<A> =
+        tiers("streak", Kind.STREAK, listOf(3, 7, 14, 30, 60, 100, 365)) +
+            tiers("kept", Kind.KEPT, listOf(10, 50, 100, 250, 500, 1000)) +
+            tiers("reviews", Kind.REVIEWS, listOf(100, 500, 1000, 5000, 10000)) +
+            tiers("mature", Kind.MATURE, listOf(10, 50, 100, 500)) +
+            tiers("reading", Kind.READING, listOf(50, 250, 1000, 5000)) +
+            tiers("reading_combo", Kind.READING_COMBO, listOf(10, 25, 50, 100)) +
+            tiers("meaning", Kind.MEANING, listOf(50, 250, 1000)) +
+            tiers("meaning_combo", Kind.MEANING_COMBO, listOf(10, 25, 50)) +
+            tiers("reverse", Kind.REVERSE, listOf(50, 250, 1000)) +
+            tiers("reverse_combo", Kind.REVERSE_COMBO, listOf(10, 25, 50)) +
+            tiers("listen", Kind.LISTEN, listOf(25, 100, 500)) +
+            tiers("listen_combo", Kind.LISTEN_COMBO, listOf(5, 10, 25)) +
+            tiers("flawless", Kind.FLAWLESS, listOf(1))
+
+    fun group(k: Kind) = when (k) {
+        Kind.STREAK -> Group.STREAK
+        Kind.KEPT -> Group.WORDS
+        Kind.REVIEWS, Kind.MATURE -> Group.REVIEWS
+        Kind.READING, Kind.READING_COMBO -> Group.READING
+        Kind.MEANING, Kind.MEANING_COMBO -> Group.MEANING
+        Kind.REVERSE, Kind.REVERSE_COMBO -> Group.REVERSE
+        Kind.LISTEN, Kind.LISTEN_COMBO -> Group.LISTEN
+        Kind.FLAWLESS -> Group.SPECIAL
+    }
+
+    //days that got one, the calendar puts a star on them
+    var markedDays by mutableStateOf(emptySet<String>())
+        private set
+
+    //the popups waiting to show, the app takes them one by one
+    val queue = MutableStateFlow<List<A>>(emptyList())
+    fun take(): A? { val q = queue.value; if (q.isEmpty()) return null; queue.value = q.drop(1); return q.first() }
+
+    private fun file(ctx: Context) = File(ctx.filesDir, "achievements.json")
+    private val lock = Any()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    fun earned(ctx: Context): Map<String, String> = synchronized(lock) {
+        val f = file(ctx).takeIf { it.exists() } ?: File(ctx.filesDir, "milestones.json")
+        val o = runCatching { JSONObject(f.readText()) }.getOrElse { JSONObject() }
+        o.keys().asSequence().associateWith { o.getString(it) }
+    }
+
+    data class Progress(val streak: Int, val kept: Int, val reviews: Int, val mature: Int, val game: Map<String, GameStats.Mode> = emptyMap()) {
+        private fun g(m: String) = game[m] ?: GameStats.Mode()
+        fun of(k: Kind) = when (k) {
+            Kind.STREAK -> streak
+            Kind.KEPT -> kept
+            Kind.REVIEWS -> reviews
+            Kind.MATURE -> mature
+            Kind.READING -> g("reading").right
+            Kind.READING_COMBO -> g("reading").best
+            Kind.MEANING -> g("meaning").right
+            Kind.MEANING_COMBO -> g("meaning").best
+            Kind.REVERSE -> g("reverse").right
+            Kind.REVERSE_COMBO -> g("reverse").best
+            Kind.LISTEN -> g("listen").right
+            Kind.LISTEN_COMBO -> g("listen").best
+            Kind.FLAWLESS -> g("flawless").right
+        }
+    }
+
+    fun progress(ctx: Context) = Progress(
+        streak = ActivityLog.streak(ActivityLog.active(ctx)).longest,
+        kept = AcceptedStore.all(ctx).size,
+        reviews = RevLog.all(ctx).size,
+        mature = SrsStore.all(ctx).values.count { it.state == SrsCard.REVIEW && it.interval >= 21 },
+        game = GameStats.all(ctx)
+    )
+
+    fun due(have: Set<String>, p: Progress) = all.filter { it.id !in have && p.of(it.kind) >= it.goal }
+
+    //returns the ones that just got unlocked
+    fun check(ctx: Context): List<A> = synchronized(lock) {
+        val have = earned(ctx).toMutableMap()
+        val fresh = due(have.keys, progress(ctx))
+        if (fresh.isNotEmpty()) {
+            val today = ActivityLog.dayKey()
+            fresh.forEach { have[it.id] = today }
+            file(ctx).writeText(JSONObject(have as Map<*, *>).toString())
+        }
+        markedDays = have.values.toSet()
+        fresh
+    }
+
+    //check in the background and line up popups for anything new
+    fun announce(ctx: Context) {
+        val app = ctx.applicationContext
+        scope.launch {
+            val fresh = runCatching { check(app) }.getOrDefault(emptyList())
+            if (fresh.isNotEmpty()) queue.value = queue.value + fresh
+        }
+    }
+}
+
+
+//draw to search, the japanese model downloads from google once and then it all runs on the phone
+object Handwriting {
+    class Pt(val x: Float, val y: Float, val t: Long)
+
+    private val model by lazy { DigitalInkRecognitionModel.builder(DigitalInkRecognitionModelIdentifier.JA).build() }
+    private var recognizer: DigitalInkRecognizer? = null
+
+    private suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { c ->
+        addOnSuccessListener { c.resume(it) }
+        addOnFailureListener { c.resumeWithException(it) }
+    }
+
+    suspend fun downloaded(): Boolean = runCatching { RemoteModelManager.getInstance().isModelDownloaded(model).await() }.getOrDefault(false)
+
+    suspend fun download() {
+        RemoteModelManager.getInstance().download(model, DownloadConditions.Builder().build()).await()
+    }
+
+    suspend fun read(strokes: List<List<Pt>>): List<String> {
+        if (strokes.isEmpty()) return emptyList()
+        val r = recognizer ?: DigitalInkRecognition.getClient(DigitalInkRecognizerOptions.builder(model).build()).also { recognizer = it }
+        val ink = MlInk.builder()
+        for (s in strokes) {
+            val b = MlInk.Stroke.builder()
+            s.forEach { b.addPoint(MlInk.Point.create(it.x, it.y, it.t)) }
+            ink.addStroke(b.build())
+        }
+        return r.recognize(ink.build()).await().candidates.map { it.text }.filter { it.isNotBlank() }.distinct().take(8)
+    }
+
+    fun close() { recognizer?.close(); recognizer = null }
 }

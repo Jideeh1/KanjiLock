@@ -32,12 +32,12 @@ made it cuz i kept forgeting to study and i look at my lock screen like 200 time
 <td width="55%" valign="middle">
 
 <b>daily word</b> · home and lock screen widget<br><br>
-<b>study</b> · anki style reviews, focus mode, practice mode<br><br>
-<b>decks</b> · anki, kotoba and ankidroid<br><br>
-<b>progress</b> · streaks, flame calendar, stats<br><br>
+<b>study</b> · anki style reviews, practice mode with 4 games, focus mode<br><br>
+<b>decks</b> · anki, kotoba and ankidroid in, .apkg out<br><br>
+<b>progress</b> · streaks, flame calendar, stats, achievements<br><br>
 <b>widgets</b> · word card, kanji tile, streak, cards due<br><br>
-<b>themes</b> · 6 of them, 5 dark and 1 light<br><br>
-<b>dictionary</b> · 218k words, fully offline
+<b>themes</b> · 11 of them, 9 dark and 2 light<br><br>
+<b>dictionary</b> · 218k words, fully offline, draw a kanji to search
 
 </td>
 <td width="45%" valign="middle" align="center">
@@ -106,7 +106,7 @@ Questions,Answers,Comment,Instructions,Render as
 花火,はなび,fireworks,Type the reading!,Image
 ```
 
-theres also an anki export (tab seperated) that goes into a deck called KanjiLock
+theres also an anki export (tab seperated) and a real .apkg deck, both go into a deck called KanjiLock
 
 </details>
 

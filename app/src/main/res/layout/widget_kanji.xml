@@ -20,10 +20,11 @@
         android:orientation="horizontal">
 
         <TextView
-            android:id="@+id/tv_kanji"
-            android:shadowColor="#73000000"
+            android:shadowColor="#B3000000"
+            android:shadowDx="0"
             android:shadowDy="1"
-            android:shadowRadius="6"
+            android:shadowRadius="8"
+            android:id="@+id/tv_kanji"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="16dp"
@@ -49,10 +50,11 @@
                 android:orientation="horizontal">
 
                 <TextView
-                    android:id="@+id/tv_reading"
-                    android:shadowColor="#73000000"
+                    android:shadowColor="#B3000000"
+                    android:shadowDx="0"
                     android:shadowDy="1"
-                    android:shadowRadius="6"
+                    android:shadowRadius="8"
+                    android:id="@+id/tv_reading"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
@@ -64,6 +66,10 @@
                     android:textSize="17sp" />
 
                 <TextView
+                    android:shadowColor="#B3000000"
+                    android:shadowDx="0"
+                    android:shadowDy="1"
+                    android:shadowRadius="8"
                     android:id="@+id/tv_prev"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -80,6 +86,10 @@
                     android:visibility="gone" />
 
                 <TextView
+                    android:shadowColor="#B3000000"
+                    android:shadowDx="0"
+                    android:shadowDy="1"
+                    android:shadowRadius="8"
                     android:id="@+id/tv_progress"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -95,10 +105,11 @@
             </LinearLayout>
 
             <TextView
-                android:id="@+id/tv_meaning"
-                android:shadowColor="#73000000"
+                android:shadowColor="#B3000000"
+                android:shadowDx="0"
                 android:shadowDy="1"
-                android:shadowRadius="6"
+                android:shadowRadius="8"
+                android:id="@+id/tv_meaning"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
@@ -110,10 +121,11 @@
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tv_example"
-                android:shadowColor="#73000000"
+                android:shadowColor="#B3000000"
+                android:shadowDx="0"
                 android:shadowDy="1"
-                android:shadowRadius="6"
+                android:shadowRadius="8"
+                android:id="@+id/tv_example"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
@@ -127,10 +139,11 @@
     </LinearLayout>
 
     <TextView
-        android:id="@+id/tv_status"
-        android:shadowColor="#73000000"
+        android:shadowColor="#B3000000"
+        android:shadowDx="0"
         android:shadowDy="1"
-        android:shadowRadius="6"
+        android:shadowRadius="8"
+        android:id="@+id/tv_status"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"

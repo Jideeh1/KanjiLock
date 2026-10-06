@@ -26,6 +26,8 @@ LIBRARIES
 
 AndroidX, Jetpack Compose and Material 3, Copyright The Android Open Source Project. Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0).
 Google Play services Auth, Copyright Google LLC. Android Software Development Kit License.
+ML Kit Digital Ink Recognition, Copyright Google LLC. ML Kit Terms of Service (https://developers.google.com/ml-kit/terms).
+Haze, Copyright Chris Banes. Apache License 2.0 (https://github.com/chrisbanes/haze/blob/main/LICENSE).
 zstd-jni, Copyright Luben Karavelov. BSD 2-Clause License (https://github.com/luben/zstd-jni/blob/master/LICENSE).
 Zstandard, Copyright Meta Platforms, Inc. BSD License (https://github.com/facebook/zstd/blob/dev/LICENSE).
 

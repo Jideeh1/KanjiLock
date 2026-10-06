@@ -24,6 +24,10 @@
             android:scaleType="fitCenter" />
 
         <TextView
+            android:shadowColor="#B3000000"
+            android:shadowDx="0"
+            android:shadowDy="1"
+            android:shadowRadius="8"
             android:id="@+id/tv_streak"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -41,6 +45,10 @@
             android:orientation="vertical">
 
             <TextView
+                android:shadowColor="#B3000000"
+                android:shadowDx="0"
+                android:shadowDy="1"
+                android:shadowRadius="8"
                 android:id="@+id/tv_streak_label"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -50,6 +58,10 @@
                 android:textSize="13sp" />
 
             <TextView
+                android:shadowColor="#B3000000"
+                android:shadowDx="0"
+                android:shadowDy="1"
+                android:shadowRadius="8"
                 android:id="@+id/tv_streak_sub"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

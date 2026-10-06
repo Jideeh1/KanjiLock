@@ -37,6 +37,8 @@ The 鍵 glyph in the launcher icon is based on the Noto CJK fonts by Google, lic
 |---|---|
 | AndroidX, Jetpack Compose, Material 3 | Apache License 2.0 |
 | Google Play services Auth | Android Software Development Kit License |
+| ML Kit Digital Ink Recognition (Google) | ML Kit Terms of Service (https://developers.google.com/ml-kit/terms) |
+| Haze (Chris Banes) | Apache License 2.0 |
 | zstd-jni (Luben Karavelov) | BSD 2-Clause |
 | Zstandard (Meta Platforms, Inc.) | BSD 3-Clause |
 | JUnit 4 (tests only) | Eclipse Public License 1.0 |

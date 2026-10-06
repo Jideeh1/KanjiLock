@@ -1,5 +1,27 @@
 package com.jideeh.kanjilock
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.hazeBlur
+import dev.chrisbanes.haze.HazeProgressive
+import dev.chrisbanes.haze.HazeInput
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.runtime.mutableStateListOf
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.SideEffect
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.LinearProgressIndicator
@@ -84,6 +106,20 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.coroutineScope
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
+import dev.chrisbanes.haze.HazeState
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.draw.shadow
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -213,7 +249,16 @@ object Palettes {
         light = true, pill = Color(0xFF1E2427), onPill = Color(0xFFF6F3EC),
         again = Color(0xFFC94A44), hard = Color(0xFFB07A1E), good = Color(0xFF2E8A5F), easy = Color(0xFF3F7DB8), flame = Color(0xFFE5791F)
     )
-    val all = listOf(Teal, Midnight, Sakura, Matcha, Sumi, Washi)
+    val Ocean = Palette("ocean", "Ocean", Color(0xFF07161F), Color(0xFF0B2230), Color(0xFF12425A), Color(0xFFEAF6FB), Color(0xFF8FB1C2), Color(0xFF5A7C8C), flame = Color(0xFFFFA45C))
+    val Ember = Palette("ember", "Ember", Color(0xFF1A0F0B), Color(0xFF26150F), Color(0xFF52291A), Color(0xFFFBEFE8), Color(0xFFC0A091), Color(0xFF86695C), flame = Color(0xFFFFB347))
+    val Lavender = Palette("lavender", "Lavender", Color(0xFF15111F), Color(0xFF1D1730), Color(0xFF3A2D5A), Color(0xFFF3EFFB), Color(0xFFA99EC4), Color(0xFF746A8E))
+    val Void = Palette("void", "Void", Color(0xFF000000), Color(0xFF000000), Color(0xFF0A0A0A), Color(0xFFF5F5F5), Color(0xFF9A9A9A), Color(0xFF5E5E5E))
+    val Snow = Palette(
+        "snow", "Snow", Color(0xFFF7F9FB), Color(0xFFEEF2F6), Color(0xFFD9E1EA), Color(0xFF1B2430), Color(0xFF5A6675), Color(0xFF8994A2),
+        light = true, pill = Color(0xFF1B2430), onPill = Color(0xFFF7F9FB),
+        again = Color(0xFFC94A44), hard = Color(0xFFB07A1E), good = Color(0xFF2E8A5F), easy = Color(0xFF3F7DB8), flame = Color(0xFFE5791F)
+    )
+    val all = listOf(Teal, Midnight, Sakura, Matcha, Sumi, Ocean, Ember, Lavender, Void, Washi, Snow)
     fun byId(id: String) = all.firstOrNull { it.id == id } ?: Teal
 }
 
@@ -416,6 +461,7 @@ fun GlassIconButton(
     selected: Boolean = false,
     size: Dp = 40.dp,
     tint: Color? = null,
+    iconSize: Dp = 20.dp,
     onClick: () -> Unit
 ) {
     val bg by animateColorAsState(if (selected) Ink.Pill else Ink.GlassHigh, label = "gib")
@@ -430,7 +476,7 @@ fun GlassIconButton(
         Icon(
             icon, contentDescription,
             tint = tint ?: if (selected) Ink.OnWhite else Ink.Text,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(iconSize)
         )
     }
 }
@@ -487,33 +533,67 @@ fun PillTabs(
     onSelect: (Int) -> Unit
 ) {
     val scroll = options.size > 4
+    val state = rememberScrollState()
+    //where each pill sits so the picked one can slide into view
+    val spots = remember { mutableStateMapOf<Int, IntRange>() }
+    LaunchedEffect(selected, scroll, spots[selected]) {
+        val r = spots[selected] ?: return@LaunchedEffect
+        if (!scroll) return@LaunchedEffect
+        val mid = (r.first + r.last) / 2 - state.viewportSize / 2
+        state.animateScrollTo(mid.coerceIn(0, state.maxValue))
+    }
+    //fade the words out at the edges when theres more to scroll to
+    val fade = if (!scroll) Modifier else Modifier
+        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            val edge = 36.dp.toPx() / size.width
+            val l = if (state.value > 0) 0f else 1f
+            val r = if (state.value < state.maxValue) 0f else 1f
+            drawRect(
+                Brush.horizontalGradient(
+                    0f to Color.Black.copy(alpha = l), edge to Color.Black,
+                    1f - edge to Color.Black, 1f to Color.Black.copy(alpha = r)
+                ),
+                blendMode = BlendMode.DstIn
+            )
+        }
     Row(
         modifier
             .clip(RoundedCornerShape(14.dp))
             .background(Ink.Glass)
-            .then(if (scroll) Modifier.horizontalScroll(rememberScrollState()) else Modifier)
+            .then(fade)
+            .then(if (scroll) Modifier.horizontalScroll(state) else Modifier)
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         options.forEachIndexed { i, label ->
             val on = i == selected
-            val bg by animateColorAsState(if (on) Ink.Pill else Color.Transparent, label = "pill")
-            Row(
+            val a by animateFloatAsState(if (on) 1f else 0f, label = "pill")
+            Box(
                 Modifier
                     .then(if (scroll) Modifier else Modifier.weight(1f))
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(bg)
-                    .clickable { onSelect(i) }
-                    .padding(vertical = 9.dp, horizontal = if (scroll) 14.dp else 0.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+                    .onPlaced { c -> val x = c.positionInParent().x.toInt(); spots[i] = x..(x + c.size.width) }
+                    //no clip here or it cuts the feather off
+                    .clickable(interactionSource = null, indication = null) { onSelect(i) },
+                contentAlignment = Alignment.Center
             ) {
+                //very soft highlight, the edges fade out instead of a hard white block
+                Box(
+                    Modifier
+                        .matchParentSize()
+                        .padding(horizontal = 7.dp, vertical = 6.dp)
+                        .graphicsLayer { alpha = a }
+                        .blur(11.dp, BlurredEdgeTreatment.Unbounded)
+                        .background(Ink.Pill.copy(alpha = 0.62f), RoundedCornerShape(12.dp))
+                )
                 Text(
                     label,
                     style = MaterialTheme.typography.labelLarge,
-                    color = if (on) Ink.OnWhite else Ink.Muted,
+                    color = lerp(Ink.Muted, Ink.OnWhite, a),
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(vertical = 9.dp, horizontal = if (scroll) 14.dp else 4.dp)
                 )
             }
         }
@@ -700,7 +780,10 @@ private fun DayCell(d: Calendar, active: Map<String, ActivityLog.Day>, goal: Int
             .background(if (isToday) Ink.GlassHigh else androidx.compose.ui.graphics.Color.Transparent),
         contentAlignment = Alignment.Center
     ) {
-        if (!isFuture) FlameGauge(fill, Modifier.fillMaxWidth(0.78f).aspectRatio(1f))
+        if (!isFuture) FlameGauge(fill, Modifier.fillMaxWidth(0.78f).aspectRatio(1f), animated = isToday && total > 0)
+        if (key in Achievements.markedDays) {
+            Icon(Ic.star, null, Modifier.align(Alignment.TopEnd).padding(2.dp).size(10.dp), tint = Ink.Hard)
+        }
         Text(
             "${d.get(Calendar.DAY_OF_MONTH)}",
             style = MaterialTheme.typography.bodyMedium,
@@ -717,8 +800,8 @@ private fun DayCell(d: Calendar, active: Map<String, ActivityLog.Day>, goal: Int
 
 
 @Composable
-fun FlameGauge(fill: Float, modifier: Modifier) {
-    Box(modifier) {
+fun FlameGauge(fill: Float, modifier: Modifier, animated: Boolean = false) {
+    Box(modifier.then(if (animated) Modifier.flicker() else Modifier)) {
         Icon(Ic.flame, null, tint = Ink.FlameEmpty, modifier = Modifier.matchParentSize())
         if (fill > 0f) {
             Icon(
@@ -731,6 +814,20 @@ fun FlameGauge(fill: Float, modifier: Modifier) {
     }
 }
 
+//makes a flame look alive, it sways and stretches a bit from the bottom
+@Composable
+fun Modifier.flicker(): Modifier {
+    val t = rememberInfiniteTransition(label = "flame")
+    val sy by t.animateFloat(1f, 1.08f, infiniteRepeatable(tween(520, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "sy")
+    val sx by t.animateFloat(1f, 0.95f, infiniteRepeatable(tween(680, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "sx")
+    val rot by t.animateFloat(-3f, 3f, infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "rot")
+    val glow by t.animateFloat(0.86f, 1f, infiniteRepeatable(tween(340), RepeatMode.Reverse), label = "glow")
+    return this.graphicsLayer {
+        transformOrigin = TransformOrigin(0.5f, 1f)
+        scaleX = sx; scaleY = sy; rotationZ = rot; alpha = glow
+    }
+}
+
 private enum class Tab(val icon: ImageVector, val label: String) {
     TODAY(Ic.home, "Today"),
     STUDY(Ic.cards, "Study"),
@@ -738,7 +835,7 @@ private enum class Tab(val icon: ImageVector, val label: String) {
     SETTINGS(Ic.settings, "Settings"),
 }
 
-val BarClearance = PaddingValues(bottom = 108.dp)
+val BarClearance = PaddingValues(bottom = 124.dp)
 
 //widgets can ask the app to open on a tab
 object AppNav {
@@ -760,7 +857,14 @@ fun KanjiApp() {
     val tick by DailyWordManager.changes.collectAsStateWithLifecycle()
     val due = remember(tick) { Study.dueNow(ctx) }
     val asked by AppNav.tab.collectAsStateWithLifecycle()
-    LaunchedEffect(asked) { if (asked >= 0) { tab = asked; AppNav.tab.value = -1 } }
+    //back goes to the tab u came from instead of closing the app
+    val visited = remember { mutableStateListOf<Int>() }
+    fun go(t: Int) { if (t != tab) { visited.remove(t); visited.add(tab); tab = t } }
+    BackHandler(enabled = visited.isNotEmpty() || tab != Tab.TODAY.ordinal) {
+        tab = if (visited.isNotEmpty()) visited.removeAt(visited.lastIndex) else Tab.TODAY.ordinal
+    }
+    LaunchedEffect(asked) { if (asked >= 0) { go(asked); AppNav.tab.value = -1 } }
+    val haze = rememberHazeState()
 
     //bar slides away when u scroll down and comes back when u scroll up
     var barShown by remember { mutableStateOf(true) }
@@ -779,6 +883,9 @@ fun KanjiApp() {
         onPauseOrDispose { }
     }
 
+    LaunchedEffect(tick) { Achievements.announce(ctx) }
+    AchievementQueue()
+
     var update by remember { mutableStateOf<Updater.Release?>(null) }
     LaunchedEffect(Unit) { Updater.check(ctx, manual = false).getOrNull()?.let { update = it } }
 
@@ -796,10 +903,10 @@ fun KanjiApp() {
             targetState = tab,
             transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) },
             label = "tab",
-            modifier = Modifier.fillMaxSize().statusBarsPadding()
+            modifier = Modifier.fillMaxSize().hazeSource(haze).statusBarsPadding()
         ) { current ->
             when (Tab.entries[current]) {
-                Tab.TODAY -> TodayScreen(tick, snackbar, onStudy = { tab = Tab.STUDY.ordinal })
+                Tab.TODAY -> TodayScreen(tick, snackbar, onStudy = { go(Tab.STUDY.ordinal) })
                 Tab.STUDY -> StudyScreen(tick)
                 Tab.WORDS -> WordsScreen(tick, snackbar)
                 Tab.SETTINGS -> SettingsScreen(tick, snackbar)
@@ -811,9 +918,35 @@ fun KanjiApp() {
             Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 84.dp)
         )
 
+        //blur behind the bar, feathered so theres no line at the top. stuff under it just melts away
+        val barVisible = barShown && !WindowInsets.isImeVisible
+        val blurAlpha by animateFloatAsState(if (barVisible) 1f else 0f, tween(220), label = "blur")
+        val feather = Brush.verticalGradient(0f to Color.Transparent, 0.35f to Color.Black.copy(alpha = 0.55f), 0.7f to Color.Black, 1f to Color.Black)
+        val shade = Brush.verticalGradient(0f to Color.Transparent, 0.5f to Ink.BgBottom.copy(alpha = 0.35f), 1f to Ink.BgBottom.copy(alpha = 0.8f))
+        Box(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(170.dp)
+                .graphicsLayer { alpha = blurAlpha }
+                .then(
+                    //real blur needs android 12, older phones just get the soft shade
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Modifier.hazeBlur(
+                        HazeInput.Sources(haze),
+                        style = HazeBlurStyle {
+                            blurRadius(24.dp)
+                            noiseFactor(0f)
+                            mask(feather)
+                            progressive(HazeProgressive.verticalGradient(startIntensity = 0f, endIntensity = 1f))
+                        }
+                    ) else Modifier
+                )
+                .background(shade)
+        )
+
         //hide the bar when keyboard is up or it covers the input
         AnimatedVisibility(
-            visible = barShown && !WindowInsets.isImeVisible,
+            visible = barVisible,
             enter = slideInVertically(tween(220)) { it } + fadeIn(tween(180)),
             exit = slideOutVertically(tween(200)) { it } + fadeOut(tween(150)),
             modifier = Modifier.align(Alignment.BottomCenter)
@@ -822,11 +955,12 @@ fun KanjiApp() {
                 selected = tab,
                 studyBadge = due,
                 showAdd = tab == Tab.WORDS.ordinal,
-                onSelect = { tab = it },
+                onSelect = { go(it) },
                 onAdd = { showAdd = true },
                 modifier = Modifier.navigationBarsPadding().padding(bottom = 14.dp)
             )
         }
+        AchievementPopup(focus = false, haze = haze)
     }
 
     update?.let { r -> UpdateDialog(r) { update = null } }
@@ -875,7 +1009,7 @@ private fun FloatingBar(
         ) {
             Tab.entries.forEachIndexed { i, t ->
                 Box {
-                    GlassIconButton(t.icon, t.label, selected = selected == i, size = 48.dp) { onSelect(i) }
+                    GlassIconButton(t.icon, t.label, selected = selected == i, size = 56.dp, iconSize = 24.dp) { onSelect(i) }
                     if (t == Tab.STUDY && studyBadge > 0) {
                         Box(
                             Modifier
@@ -903,7 +1037,7 @@ private fun FloatingBar(
                     .border(1.dp, Ink.GlassStroke, shape)
                     .padding(8.dp)
             ) {
-                GlassIconButton(Ic.add, "Add word", size = 48.dp, onClick = onAdd)
+                GlassIconButton(Ic.add, "Add word", size = 56.dp, iconSize = 24.dp, onClick = onAdd)
             }
         }
     }
@@ -928,6 +1062,20 @@ object Exporter {
         share(ctx, AcceptedStore.ankiFile(ctx), "text/plain", "KanjiLock for Anki")
     }
 
+    //a real anki package, opens in anki desktop and ankidroid
+    fun shareApkg(ctx: Context) {
+        val words = AcceptedStore.all(ctx).reversed()
+        if (words.isEmpty()) { Toast.makeText(ctx, R.string.err_no_accepted, Toast.LENGTH_SHORT).show(); return }
+        val f = java.io.File(ctx.cacheDir, "exports/KanjiLock.apkg").apply { parentFile?.mkdirs() }
+        val ok = runCatching {
+            f.outputStream().use { out ->
+                ApkgWriter.write("KanjiLock", words.map { ApkgWriter.Note(it.key, it.word, it.reading, it.meaning, it.exampleLine()) }, out, java.io.File(ctx.cacheDir, "exports")) { AndroidSqlSink(it) }
+            }
+        }.isSuccess
+        if (!ok) { Toast.makeText(ctx, R.string.export_apkg_failed, Toast.LENGTH_LONG).show(); return }
+        share(ctx, f, "application/apkg", "KanjiLock.apkg")
+    }
+
     private fun share(ctx: Context, f: java.io.File, mime: String, subject: String) {
         val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", f)
         val send = Intent(Intent.ACTION_SEND).apply {
@@ -943,12 +1091,14 @@ object Exporter {
 class Speaker(ctx: Context) {
     private val appCtx = ctx.applicationContext
     private var ready = false
+    private var waiting: String? = null //listen mode asks before the voice is loaded
     private val tts: TextToSpeech = TextToSpeech(appCtx) { status ->
         ready = status == TextToSpeech.SUCCESS
+        waiting?.let { waiting = null; speak(it) }
     }
 
     fun speak(text: String) {
-        if (!ready) return
+        if (!ready) { waiting = text; return }
         val res = tts.setLanguage(Locale.JAPAN)
         if (res == TextToSpeech.LANG_MISSING_DATA || res == TextToSpeech.LANG_NOT_SUPPORTED) {
             Toast.makeText(appCtx, R.string.err_no_japanese_voice, Toast.LENGTH_LONG).show()
@@ -1036,7 +1186,7 @@ object Importer {
 //sounds for again hard good easy
 object Sfx {
     private var pool: android.media.SoundPool? = null
-    private val ids = IntArray(4)
+    private val ids = IntArray(5)
 
     fun init(ctx: Context) {
         if (pool != null) return
@@ -1053,12 +1203,18 @@ object Sfx {
         ids[1] = p.load(app, R.raw.sfx_hard, 1)
         ids[2] = p.load(app, R.raw.sfx_good, 1)
         ids[3] = p.load(app, R.raw.sfx_easy, 1)
+        ids[4] = p.load(app, R.raw.sfx_achievement, 1)
         pool = p
     }
     fun play(ctx: Context, grade: Int) {
         if (!Prefs.sfx(ctx)) return
         init(ctx)
         pool?.play(ids[grade.coerceIn(0, 3)], 0.9f, 0.9f, 1, 0, 1f)
+    }
+    fun achievement(ctx: Context) {
+        if (!Prefs.sfx(ctx)) return
+        init(ctx)
+        pool?.play(ids[4], 1f, 1f, 2, 0, 1f)
     }
 }
 
@@ -1068,6 +1224,11 @@ object Ic {
         .addPath(PathParser().parsePathString(d).toNodes(), fill = SolidColor(Color.White)).build()
 
     val add by lazy { v("add", "M19,13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z") }
+    val star by lazy { v("star", "M12,17.27L18.18,21l-1.64,-7.03L22,9.24l-7.19,-0.61L12,2 9.19,8.63 2,9.24l5.46,4.73L5.82,21z") }
+    val trophy by lazy { v("trophy", "M19,5h-2V3H7v2H5C3.9,5 3,5.9 3,7v1c0,2.55 1.92,4.63 4.39,4.94c0.63,1.5 1.98,2.63 3.61,2.96V19H7v2h10v-2h-4v-3.1c1.63,-0.33 2.98,-1.46 3.61,-2.96C19.08,12.63 21,10.55 21,8V7C21,5.9 20.1,5 19,5zM5,8V7h2v3.82C5.84,10.4 5,9.3 5,8zM19,8c0,1.3 -0.84,2.4 -2,2.82V7h2V8z") }
+    val stats by lazy { v("stats", "M5,9.2h3V19H5V9.2zM10.6,5h2.8v14h-2.8V5zM16.2,13H19v6h-2.8V13z") }
+    val pen by lazy { v("pen", "M3,17.25V21h3.75L17.81,9.94l-3.75,-3.75L3,17.25zM20.71,7.04c0.39,-0.39 0.39,-1.02 0,-1.41l-2.34,-2.34c-0.39,-0.39 -1.02,-0.39 -1.41,0l-1.83,1.83 3.75,3.75 1.83,-1.83z") }
+    val play by lazy { v("play", "M8,5v14l11,-7z") }
     val fullscreen by lazy { v("fullscreen", "M7,14H5v5h5v-2H7v-3zM5,10h2V7h3V5H5v5zm12,7h-3v2h5v-5h-2v3zM14,5v2h3v3h2V5h-5z") }
     val book by lazy { v("book", "M18,2H6c-1.1,0 -2,0.9 -2,2v16c0,1.1 0.9,2 2,2h12c1.1,0 2,-0.9 2,-2V4c0,-1.1 -0.9,-2 -2,-2zM6,4h5v8l-2.5,-1.5L6,12V4z") }
     val bookmark by lazy { v("bookmark", "M17,3H7c-1.1,0 -2,0.9 -2,2v16l7,-3 7,3V5c0,-1.1 -0.9,-2 -2,-2z") }
@@ -1197,4 +1358,229 @@ fun UpdateDialog(r: Updater.Release, onDismiss: () -> Unit) {
             }
         }
     )
+}
+
+
+fun achName(ctx: Context, a: Achievements.A): String {
+    val arr = when (a.kind) {
+        Achievements.Kind.STREAK -> R.array.ach_names_streak
+        Achievements.Kind.KEPT -> R.array.ach_names_kept
+        Achievements.Kind.REVIEWS -> R.array.ach_names_reviews
+        Achievements.Kind.MATURE -> R.array.ach_names_mature
+        Achievements.Kind.READING -> R.array.ach_names_reading
+        Achievements.Kind.READING_COMBO -> R.array.ach_names_reading_combo
+        Achievements.Kind.MEANING -> R.array.ach_names_meaning
+        Achievements.Kind.MEANING_COMBO -> R.array.ach_names_meaning_combo
+        Achievements.Kind.REVERSE -> R.array.ach_names_reverse
+        Achievements.Kind.REVERSE_COMBO -> R.array.ach_names_reverse_combo
+        Achievements.Kind.LISTEN -> R.array.ach_names_listen
+        Achievements.Kind.LISTEN_COMBO -> R.array.ach_names_listen_combo
+        Achievements.Kind.FLAWLESS -> R.array.ach_names_flawless
+    }
+    return ctx.resources.getStringArray(arr).getOrElse(a.tier) { "" }
+}
+
+fun achDesc(ctx: Context, a: Achievements.A): String = when (a.kind) {
+    Achievements.Kind.STREAK -> ctx.getString(R.string.ach_desc_streak, a.goal)
+    Achievements.Kind.KEPT -> ctx.getString(R.string.ach_desc_kept, a.goal)
+    Achievements.Kind.REVIEWS -> ctx.getString(R.string.ach_desc_reviews, a.goal)
+    Achievements.Kind.MATURE -> ctx.getString(R.string.ach_desc_mature, a.goal)
+    Achievements.Kind.READING -> ctx.getString(R.string.ach_desc_reading, a.goal)
+    Achievements.Kind.READING_COMBO -> ctx.getString(R.string.ach_desc_reading_combo, a.goal)
+    Achievements.Kind.MEANING -> ctx.getString(R.string.ach_desc_meaning, a.goal)
+    Achievements.Kind.MEANING_COMBO -> ctx.getString(R.string.ach_desc_meaning_combo, a.goal)
+    Achievements.Kind.REVERSE -> ctx.getString(R.string.ach_desc_reverse, a.goal)
+    Achievements.Kind.REVERSE_COMBO -> ctx.getString(R.string.ach_desc_reverse_combo, a.goal)
+    Achievements.Kind.LISTEN -> ctx.getString(R.string.ach_desc_listen, a.goal)
+    Achievements.Kind.LISTEN_COMBO -> ctx.getString(R.string.ach_desc_listen_combo, a.goal)
+    Achievements.Kind.FLAWLESS -> ctx.getString(R.string.ach_desc_flawless)
+}
+
+fun groupName(g: Achievements.Group) = when (g) {
+    Achievements.Group.STREAK -> R.string.ach_group_streak
+    Achievements.Group.WORDS -> R.string.ach_group_words
+    Achievements.Group.REVIEWS -> R.string.ach_group_reviews
+    Achievements.Group.READING -> R.string.ach_group_reading
+    Achievements.Group.MEANING -> R.string.ach_group_meaning
+    Achievements.Group.REVERSE -> R.string.ach_group_reverse
+    Achievements.Group.LISTEN -> R.string.ach_group_listen
+    Achievements.Group.SPECIAL -> R.string.ach_group_special
+}
+
+fun groupIcon(g: Achievements.Group) = when (g) {
+    Achievements.Group.STREAK -> Ic.flame
+    Achievements.Group.WORDS -> Ic.bookmark
+    Achievements.Group.REVIEWS -> Ic.cards
+    Achievements.Group.READING -> Ic.book
+    Achievements.Group.MEANING -> Ic.search
+    Achievements.Group.REVERSE -> Ic.refresh
+    Achievements.Group.LISTEN -> Ic.volume
+    Achievements.Group.SPECIAL -> Ic.star
+}
+
+//whats on screen right now, null when nothing. more is for the "and 5 more" one
+class Popup(val a: Achievements.A?, val more: Int = 0)
+object Popups {
+    var showing by mutableStateOf<Popup?>(null)
+    var focusOpen by mutableIntStateOf(0) //focus mode is its own window so it shows them there instead
+}
+
+//goes thru the queue one at a time, if a bunch unlock together it shows 2 and then sums up the rest
+@Composable
+fun AchievementQueue() {
+    val ctx = LocalContext.current
+    val queued by Achievements.queue.collectAsStateWithLifecycle()
+    LaunchedEffect(queued.isNotEmpty()) {
+        while (Achievements.queue.value.isNotEmpty()) {
+            val batch = generateSequence { Achievements.take() }.toList()
+            val shows = if (batch.size > 3) batch.take(2).map { Popup(it) } + Popup(null, batch.size - 2) else batch.map { Popup(it) }
+            for (p in shows) {
+                Popups.showing = p
+                Sfx.achievement(ctx)
+                Haptics.tick(ctx)
+                delay(4300)
+                Popups.showing = null
+                delay(650)
+            }
+        }
+    }
+}
+
+//the steps of the popup, each one goes 0 to 1
+class PopAnim {
+    val shade = Animatable(0f) //blur behind it
+    val dot = Animatable(0f) //the little circle in the middle
+    val stretch = Animatable(0f) //circle stretching into the pill
+    val title = Animatable(0f)
+    val desc = Animatable(0f)
+    val badge = Animatable(0f) //big circle on the left
+    val cup = Animatable(0f) //trophy inside it
+    suspend fun reset() = listOf(shade, dot, stretch, title, desc, badge, cup).forEach { it.snapTo(0f) }
+}
+
+//circle pops in the middle, stretches out, text drops in, then the badge and the trophy pop
+private suspend fun PopAnim.enter() = coroutineScope {
+    launch { shade.animateTo(1f, tween(320)) }
+    dot.animateTo(1f, tween(260, easing = PopOut)) //springs take too long to settle here
+    delay(120)
+    stretch.animateTo(1f, tween(420, easing = FastOutSlowInEasing))
+    launch { title.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = 520f)) }
+    delay(90)
+    launch { desc.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 520f)) }
+    delay(120)
+    launch { badge.animateTo(1f, spring(dampingRatio = 0.42f, stiffness = 480f)) }
+    delay(110)
+    cup.animateTo(1f, spring(dampingRatio = 0.38f, stiffness = 440f))
+}
+
+//same thing backwards but quick
+private suspend fun PopAnim.exit() = coroutineScope {
+    cup.animateTo(0f, tween(70, easing = FastOutLinearInEasing))
+    badge.animateTo(0f, tween(80, easing = FastOutLinearInEasing))
+    launch { desc.animateTo(0f, tween(70)) }
+    delay(30)
+    title.animateTo(0f, tween(70))
+    stretch.animateTo(0f, tween(150, easing = FastOutSlowInEasing))
+    launch { shade.animateTo(0f, tween(200)) }
+    dot.animateTo(0f, tween(90, easing = FastOutLinearInEasing))
+}
+
+@Composable
+fun AchievementPopup(focus: Boolean, haze: HazeState? = null) {
+    val now = Popups.showing
+    val want = now != null && focus == (Popups.focusOpen > 0)
+    var shown by remember { mutableStateOf<Popup?>(null) }
+    val anim = remember { PopAnim() }
+    LaunchedEffect(want, now) {
+        if (want) { anim.reset(); shown = now; anim.enter() }
+        else if (shown != null) { anim.exit(); shown = null }
+    }
+    val p = shown ?: return
+    Box(Modifier.fillMaxSize()) {
+        //blur at the top so the popup reads over anything, fades out going down
+        val fade = Brush.verticalGradient(0f to Color.Black, 0.55f to Color.Black.copy(alpha = 0.6f), 1f to Color.Transparent)
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(190.dp)
+                .graphicsLayer { alpha = anim.shade.value }
+                .then(
+                    if (haze != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Modifier.hazeBlur(
+                        HazeInput.Sources(haze),
+                        style = HazeBlurStyle {
+                            blurRadius(22.dp)
+                            noiseFactor(0f)
+                            mask(fade)
+                            progressive(HazeProgressive.verticalGradient(startIntensity = 1f, endIntensity = 0f))
+                        }
+                    ) else Modifier
+                )
+                .background(Brush.verticalGradient(0f to Ink.BgTop.copy(alpha = 0.75f), 0.6f to Ink.BgTop.copy(alpha = 0.3f), 1f to Color.Transparent))
+        )
+        AchievementPill(p.a, p.more, anim.dot.value, anim.stretch.value, anim.title.value, anim.desc.value, anim.badge.value, anim.cup.value,
+            Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 14.dp))
+    }
+}
+
+private val Gold = Color(0xFFF2C434)
+private val PopOut = CubicBezierEasing(0.34f, 1.56f, 0.64f, 1f) //goes a bit past then back
+
+//pill with a big circle hanging off the left and a trophy in it. all the floats are the animation steps
+@Composable
+fun AchievementPill(
+    a: Achievements.A?,
+    more: Int,
+    dot: Float = 1f,
+    stretch: Float = 1f,
+    title: Float = 1f,
+    desc: Float = 1f,
+    badge: Float = 1f,
+    cup: Float = 1f,
+    modifier: Modifier = Modifier
+) {
+    val ctx = LocalContext.current
+    val w = 300.dp
+    val h = 52.dp
+    val d = 64.dp
+    val pill = lerp(Ink.BgMid, Ink.Text, 0.07f).copy(alpha = 0.97f)
+    val circle = lerp(Ink.BgMid, Ink.Text, 0.2f)
+    Box(modifier.width(w).height(d)) {
+        //starts as a circle in the middle then stretches both ways
+        Box(
+            Modifier
+                .align(Alignment.Center)
+                .size(width = h + (w - 8.dp - h) * stretch, height = h)
+                .graphicsLayer { scaleX = dot; scaleY = dot; alpha = dot.coerceIn(0f, 1f) }
+                .shadow(10.dp, CircleShape)
+                .clip(CircleShape)
+                .background(pill)
+                .border(1.dp, Ink.GlassStroke, CircleShape)
+        )
+        Column(Modifier.align(Alignment.CenterStart).padding(start = 16.dp + d + 12.dp, end = 18.dp)) {
+            Text(
+                if (a != null) achName(ctx, a) else stringResource(R.string.ach_more, more),
+                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Ink.Text, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.graphicsLayer { alpha = title.coerceIn(0f, 1f); translationY = (1f - title) * -10.dp.toPx(); scaleY = 0.7f + 0.3f * title; transformOrigin = TransformOrigin(0.5f, 0f) }
+            )
+            Text(
+                if (a != null) achDesc(ctx, a) else stringResource(R.string.ach_more_sub),
+                style = MaterialTheme.typography.labelSmall, color = Ink.Muted, maxLines = 2, lineHeight = 13.sp,
+                modifier = Modifier.graphicsLayer { alpha = desc.coerceIn(0f, 1f); translationY = (1f - desc) * -8.dp.toPx(); scaleY = 0.7f + 0.3f * desc; transformOrigin = TransformOrigin(0.5f, 0f) }
+            )
+        }
+        //sits a bit in from the left so the pill peeks out behind it
+        Box(
+            Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = 16.dp)
+                .size(d)
+                .graphicsLayer { scaleX = badge; scaleY = badge; alpha = badge.coerceIn(0f, 1f) }
+                .shadow(6.dp, CircleShape)
+                .clip(CircleShape)
+                .background(circle),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Ic.trophy, null, Modifier.size(38.dp).graphicsLayer { scaleX = cup; scaleY = cup; alpha = cup.coerceIn(0f, 1f) }, tint = Gold)
+        }
+    }
 }

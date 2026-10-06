@@ -10,6 +10,10 @@
     android:padding="6dp">
 
     <TextView
+        android:shadowColor="#B3000000"
+        android:shadowDx="0"
+        android:shadowDy="1"
+        android:shadowRadius="8"
         android:id="@+id/tv_kanji"
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -21,24 +25,22 @@
         android:gravity="center"
         android:includeFontPadding="false"
         android:maxLines="1"
-        android:shadowColor="#73000000"
-        android:shadowDy="1"
-        android:shadowRadius="6"
         android:text="山"
         android:textColor="@color/widget_text"
         android:textLocale="ja-JP"
         android:textStyle="bold" />
 
     <TextView
+        android:shadowColor="#B3000000"
+        android:shadowDx="0"
+        android:shadowDy="1"
+        android:shadowRadius="8"
         android:id="@+id/tv_reading"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:ellipsize="end"
         android:gravity="center"
         android:maxLines="1"
-        android:shadowColor="#73000000"
-        android:shadowDy="1"
-        android:shadowRadius="6"
         android:text="やま"
         android:textColor="@color/widget_accent"
         android:textLocale="ja-JP"

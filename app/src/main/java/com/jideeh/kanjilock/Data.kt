@@ -16,6 +16,9 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
+import java.util.zip.ZipEntry
+import java.io.OutputStream
 import kotlin.math.max
 import kotlin.math.roundToLong
 import org.json.JSONArray
@@ -134,6 +137,9 @@ object Prefs {
 
     fun practice(ctx: Context): Boolean = sp(ctx).getBoolean("practice", false)
     fun setPractice(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("practice", v).apply()
+    //which game practice mode plays, reading is what practice used to be
+    fun studyMode(ctx: Context): String = sp(ctx).getString("study_mode", null) ?: "reading"
+    fun setStudyMode(ctx: Context, v: String) = sp(ctx).edit().putString("study_mode", v).apply()
 
     fun selectedDeck(ctx: Context): String = sp(ctx).getString("selected_deck", "accepted") ?: "accepted"
     fun setSelectedDeck(ctx: Context, id: String) = sp(ctx).edit().putString("selected_deck", id).apply()
@@ -372,8 +378,9 @@ object ActivityLog {
         val total: Int get() = accepted + reviews
     }
 
-    fun dayKey(t: Long = System.currentTimeMillis()): String = fmt.format(Date(t))
-    fun dayKey(cal: Calendar): String = fmt.format(cal.time)
+    //SimpleDateFormat isnt thread safe and milestones run in the background
+    fun dayKey(t: Long = System.currentTimeMillis()): String = synchronized(fmt) { fmt.format(Date(t)) }
+    fun dayKey(cal: Calendar): String = synchronized(fmt) { fmt.format(cal.time) }
 
     private fun load(ctx: Context): JSONObject =
         try { if (file(ctx).exists()) JSONObject(file(ctx).readText()) else JSONObject() } catch (_: Exception) { JSONObject() }
@@ -1274,6 +1281,139 @@ object ApkgParser {
         val name = main?.let { deckNames[it] } ?: "Anki deck"
         return Result(name, cards)
     }
+}
+
+//the other way around, so the jvm tests can write a real database too
+interface SqlSink : AutoCloseable {
+    fun exec(sql: String, args: List<Any?> = emptyList())
+}
+
+class AndroidSqlSink(file: File) : SqlSink {
+    private val db = SQLiteDatabase.openOrCreateDatabase(file, null)
+    override fun exec(sql: String, args: List<Any?>) = db.execSQL(sql, args.toTypedArray())
+    override fun close() = db.close()
+}
+
+//writes a real .apkg (the old anki2 kind, every anki version can open it)
+//note type has kanji reading meaning example and u type the reading on the front
+object ApkgWriter {
+    class Note(val key: String, val kanji: String, val reading: String, val meaning: String, val example: String)
+
+    //fixed ids so importing again updates the same deck instead of making a copy
+    const val MODEL_ID = 1726000000001L
+    const val DECK_ID = 1726000000002L
+    val FIELDS = listOf("Kanji", "Reading", "Meaning", "Example")
+
+    private val SCHEMA = listOf(
+        "create table col (id integer primary key, crt integer not null, mod integer not null, scm integer not null, ver integer not null, dty integer not null, usn integer not null, ls integer not null, conf text not null, models text not null, decks text not null, dconf text not null, tags text not null)",
+        "create table notes (id integer primary key, guid text not null, mid integer not null, mod integer not null, usn integer not null, tags text not null, flds text not null, sfld integer not null, csum integer not null, flags integer not null, data text not null)",
+        "create table cards (id integer primary key, nid integer not null, did integer not null, ord integer not null, mod integer not null, usn integer not null, type integer not null, queue integer not null, due integer not null, ivl integer not null, factor integer not null, reps integer not null, lapses integer not null, left integer not null, odue integer not null, odid integer not null, flags integer not null, data text not null)",
+        "create table revlog (id integer primary key, cid integer not null, usn integer not null, ease integer not null, ivl integer not null, lastIvl integer not null, factor integer not null, time integer not null, type integer not null)",
+        "create table graves (usn integer not null, oid integer not null, type integer not null)",
+        "create index ix_notes_usn on notes (usn)",
+        "create index ix_cards_usn on cards (usn)",
+        "create index ix_revlog_usn on revlog (usn)",
+        "create index ix_cards_nid on cards (nid)",
+        "create index ix_cards_sched on cards (did, queue, due)",
+        "create index ix_revlog_cid on revlog (cid)",
+        "create index ix_notes_csum on notes (csum)"
+    )
+
+    fun write(deckName: String, notes: List<Note>, out: OutputStream, workDir: File, now: Long = System.currentTimeMillis(), open: (File) -> SqlSink) {
+        workDir.mkdirs()
+        val f = File(workDir, "export-${System.nanoTime()}.anki2")
+        try {
+            open(f).use { db -> fill(db, deckName, notes, now) }
+            ZipOutputStream(out).use { zip ->
+                zip.putNextEntry(ZipEntry("collection.anki2")); f.inputStream().use { it.copyTo(zip) }; zip.closeEntry()
+                zip.putNextEntry(ZipEntry("media")); zip.write("{}".toByteArray()); zip.closeEntry()
+            }
+        } finally {
+            f.delete(); File(f.path + "-journal").delete(); File(f.path + "-wal").delete()
+        }
+    }
+
+    private fun fill(db: SqlSink, deckName: String, notes: List<Note>, now: Long) {
+        val sec = now / 1000
+        SCHEMA.forEach { db.exec(it) }
+        db.exec(
+            "insert into col values (1, ?, ?, ?, 11, 0, 0, 0, ?, ?, ?, ?, '{}')",
+            listOf(sec - sec % 86400, now, now, conf().toString(), models(sec).toString(), decks(deckName, sec).toString(), dconf(sec).toString())
+        )
+        notes.forEachIndexed { i, n ->
+            val id = now + i
+            val flds = listOf(n.kanji, n.reading, n.meaning, n.example).joinToString("\u001f") { html(it) }
+            db.exec(
+                "insert into notes values (?, ?, ?, ?, -1, ' KanjiLock ', ?, ?, ?, 0, '')",
+                listOf(id, guid(n.key), MODEL_ID, sec, flds, n.kanji, csum(n.kanji))
+            )
+            db.exec(
+                "insert into cards values (?, ?, ?, 0, ?, -1, 0, 0, ?, 0, 0, 0, 0, 0, 0, 0, 0, '')",
+                listOf(id, id, DECK_ID, sec, i + 1)
+            )
+        }
+    }
+
+    private fun html(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
+
+    //anki checks dupes with the first 8 hex of sha1 of the first field
+    fun csum(s: String): Long {
+        val d = MessageDigest.getInstance("SHA-1").digest(s.trim().toByteArray())
+        return d.take(4).fold(0L) { a, b -> (a shl 8) or (b.toLong() and 0xff) }
+    }
+
+    fun guid(key: String): String {
+        val d = MessageDigest.getInstance("SHA-1").digest(("kanjilock:" + key).toByteArray())
+        return "kl" + d.take(8).joinToString("") { "%02x".format(it) }
+    }
+
+    private fun conf() = JSONObject()
+        .put("activeDecks", JSONArray().put(1)).put("curDeck", 1).put("newSpread", 0).put("collapseTime", 1200)
+        .put("timeLim", 0).put("estTimes", true).put("dueCounts", true).put("curModel", MODEL_ID.toString())
+        .put("nextPos", 1).put("sortType", "noteFld").put("sortBackwards", false).put("addToCur", true)
+
+    private fun models(sec: Long): JSONObject {
+        val flds = JSONArray()
+        FIELDS.forEachIndexed { i, name ->
+            flds.put(JSONObject().put("name", name).put("ord", i).put("sticky", false).put("rtl", false).put("font", "Arial").put("size", 20).put("media", JSONArray()))
+        }
+        val tmpl = JSONObject()
+            .put("name", "Reading").put("ord", 0)
+            .put("qfmt", "<div class=kanji>{{Kanji}}</div>\n{{type:Reading}}")
+            .put("afmt", "<div class=kanji>{{Kanji}}</div>\n{{type:Reading}}\n<hr id=answer>\n<div class=reading>{{Reading}}</div>\n<div>{{Meaning}}</div>\n{{#Example}}<div class=example>{{Example}}</div>{{/Example}}")
+            .put("did", JSONObject.NULL).put("bqfmt", "").put("bafmt", "")
+        val css = ".card { font-family: sans-serif; font-size: 20px; text-align: center; }\n" +
+            ".kanji { font-size: 64px; margin: 12px 0; }\n.reading { font-size: 28px; margin: 6px 0; }\n.example { opacity: .7; font-size: 16px; margin-top: 10px; }"
+        val m = JSONObject()
+            .put("id", MODEL_ID).put("name", "KanjiLock").put("type", 0).put("mod", sec).put("usn", -1).put("sortf", 0)
+            .put("did", DECK_ID).put("tmpls", JSONArray().put(tmpl)).put("flds", flds).put("css", css)
+            .put("latexPre", "\\documentclass[12pt]{article}\n\\special{papersize=3in,5in}\n\\usepackage[utf8]{inputenc}\n\\usepackage{amssymb,amsmath}\n\\pagestyle{empty}\n\\setlength{\\parindent}{0in}\n\\begin{document}\n")
+            .put("latexPost", "\\end{document}").put("latexsvg", false)
+            .put("req", JSONArray().put(JSONArray().put(0).put("any").put(JSONArray().put(0))))
+            .put("tags", JSONArray()).put("vers", JSONArray())
+        return JSONObject().put(MODEL_ID.toString(), m)
+    }
+
+    private fun deck(id: Long, name: String, sec: Long) = JSONObject()
+        .put("id", id).put("name", name).put("mod", sec).put("usn", -1).put("desc", "")
+        .put("lrnToday", JSONArray().put(0).put(0)).put("revToday", JSONArray().put(0).put(0))
+        .put("newToday", JSONArray().put(0).put(0)).put("timeToday", JSONArray().put(0).put(0))
+        .put("collapsed", false).put("browserCollapsed", false).put("dyn", 0).put("conf", 1)
+        .put("extendNew", 0).put("extendRev", 0)
+
+    private fun decks(name: String, sec: Long) = JSONObject()
+        .put("1", deck(1, "Default", sec))
+        .put(DECK_ID.toString(), deck(DECK_ID, name, sec))
+
+    private fun dconf(sec: Long) = JSONObject().put("1", JSONObject()
+        .put("id", 1).put("name", "Default").put("mod", sec).put("usn", 0).put("maxTaken", 60).put("autoplay", true)
+        .put("timer", 0).put("replayq", true).put("dyn", false)
+        .put("new", JSONObject().put("delays", JSONArray().put(1).put(10)).put("ints", JSONArray().put(1).put(4).put(0))
+            .put("initialFactor", 2500).put("order", 1).put("perDay", 20).put("bury", false))
+        .put("rev", JSONObject().put("perDay", 200).put("ease4", 1.3).put("ivlFct", 1).put("maxIvl", 36500)
+            .put("hardFactor", 1.2).put("bury", false))
+        .put("lapse", JSONObject().put("delays", JSONArray().put(10)).put("mult", 0).put("minInt", 1)
+            .put("leechFails", 8).put("leechAction", 1)))
 }
 
 //one big json of everything, used for the backup file and drive

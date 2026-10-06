@@ -1,5 +1,7 @@
 package com.jideeh.kanjilock
 
+import java.util.Calendar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.geometry.Rect
@@ -21,6 +23,13 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.FocusRequester
@@ -272,7 +281,7 @@ fun StreakCard(
                     Icon(
                         Ic.flame, null,
                         tint = if (streak.todayDone) Ink.Flame else Ink.Muted,
-                        modifier = Modifier.size(30.dp)
+                        modifier = Modifier.size(30.dp).then(if (streak.todayDone) Modifier.flicker() else Modifier)
                     )
                     Spacer(Modifier.width(6.dp))
                     Text("${streak.current}", style = MaterialTheme.typography.displaySmall, color = Ink.Text)
@@ -511,6 +520,7 @@ internal fun ReviewCard(due: Int, hasCards: Boolean, onStudy: () -> Unit) {
 private fun LockScreenCard(tick: Int) {
     val ctx = LocalContext.current
     var expanded by rememberSaveable { mutableStateOf(false) }
+    var picker by remember { mutableStateOf(false) }
     val hasWidget = remember(tick) { KanjiWidgetProvider.hasWidgets(ctx) }
     GlassCard(Modifier.fillMaxWidth()) {
         CardTitle(Ic.lock, stringResource(R.string.lock_card_title))
@@ -524,11 +534,10 @@ private fun LockScreenCard(tick: Int) {
             WhitePill(
                 stringResource(if (hasWidget) R.string.add_another_widget else R.string.add_widget),
                 icon = Ic.widgets
-            ) {
-                if (!KanjiWidgetProvider.requestPin(ctx)) Toast.makeText(ctx, R.string.pin_unsupported, Toast.LENGTH_LONG).show()
-            }
+            ) { picker = true }
             GhostPill(stringResource(if (expanded) R.string.hide_steps else R.string.show_steps)) { expanded = !expanded }
         }
+        if (picker) WidgetPickerDialog { picker = false }
         AnimatedVisibility(expanded, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
             Column(Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Step(stringResource(R.string.steps_samsung_title), stringResource(R.string.steps_samsung_body))
@@ -567,7 +576,9 @@ fun StudyScreen(tick: Int) {
     var confirmDelete by remember { mutableStateOf<Deck?>(null) }
     var busy by remember { mutableStateOf(false) }
     var practice by rememberSaveable { mutableStateOf(Prefs.practice(ctx)) }
+    var mode by rememberSaveable { mutableStateOf(Prefs.studyMode(ctx).takeIf { it in GameModes } ?: GameModes[0]) }
     var focusOpen by rememberSaveable { mutableStateOf(false) }
+    var statsOpen by rememberSaveable { mutableStateOf(false) }
     var ankiSheet by remember { mutableStateOf<Deck?>(null) }
     var ankiSheetOpen by remember { mutableStateOf(false) }
 
@@ -613,7 +624,7 @@ fun StudyScreen(tick: Int) {
             kicker = stringResource(R.string.study_kicker),
             title = stringResource(R.string.tab_study),
             subtitle = stringResource(R.string.study_decks_sub, decks.size)
-        )
+        ) { GlassIconButton(Ic.stats, stringResource(R.string.stats_title), size = 44.dp, iconSize = 22.dp) { statsOpen = true } }
 
         DeckShelf(
             decks = decks,
@@ -656,6 +667,7 @@ fun StudyScreen(tick: Int) {
         }
         Spacer(Modifier.height(10.dp))
 
+        //practice never touches ur deck or anki, the game modes live inside it
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -666,24 +678,34 @@ fun StudyScreen(tick: Int) {
             }
             GhostPill(stringResource(R.string.focus_mode), icon = Ic.fullscreen) { focusOpen = true }
         }
-        if (practice) {
-            Text(
-                stringResource(R.string.practice_sub), style = MaterialTheme.typography.labelMedium, color = Ink.Muted,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-            )
+        AnimatedVisibility(practice, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+            Column {
+                Spacer(Modifier.height(10.dp))
+                PillTabs(GameModes.map { stringResource(modeLabel(it)) }, GameModes.indexOf(mode).coerceAtLeast(0), Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    mode = GameModes[it]; Prefs.setStudyMode(ctx, mode)
+                }
+            }
         }
-        Spacer(Modifier.height(12.dp))
+        Text(
+            stringResource(if (practice) modeSub(mode) else R.string.mode_review_sub), style = MaterialTheme.typography.labelMedium, color = Ink.Muted,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
+        )
+        Spacer(Modifier.height(6.dp))
 
         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val close = { focusOpen = false }
             when {
+                practice && mode == "listen" -> PracticeSession(deck, focusOpen, close, listen = true)
+                practice && mode == "meaning" -> ChoiceSession(deck, reverse = false, focusOpen, close)
+                practice && mode == "reverse" -> ChoiceSession(deck, reverse = true, focusOpen, close)
                 practice -> PracticeSession(deck, focusOpen, close)
                 deck.isLinked -> AnkiDroidSession(deck, tick, focusOpen, close)
                 else -> LocalSession(deck, tick, focusOpen, close)
             }
-            if (!deck.isLinked && !practice) InsightsCard(deck.id, tick)
         }
     }
+
+    if (statsOpen) StatsSheet(deck, tick) { statsOpen = false }
 
     if (ankiSheetOpen) {
         AnkiWebSheet(
@@ -753,6 +775,22 @@ fun StudyScreen(tick: Int) {
             dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text(stringResource(R.string.cancel), color = Ink.Text) } }
         )
     }
+}
+
+val GameModes = listOf("reading", "meaning", "reverse", "listen")
+
+fun modeLabel(m: String) = when (m) {
+    "meaning" -> R.string.mode_meaning
+    "reverse" -> R.string.mode_reverse
+    "listen" -> R.string.mode_listen
+    else -> R.string.mode_reading
+}
+
+fun modeSub(m: String) = when (m) {
+    "meaning" -> R.string.mode_meaning_sub
+    "reverse" -> R.string.mode_reverse_sub
+    "listen" -> R.string.mode_listen_sub
+    else -> R.string.mode_reading_sub
 }
 
 @Composable
@@ -864,8 +902,49 @@ private fun linkByName(ctx: android.content.Context, deck: Deck, done: () -> Uni
     done()
 }
 
+//all 4 widgets, android only lets us ask for one at a time
+@Composable
+fun WidgetPickerDialog(onDismiss: () -> Unit) {
+    val ctx = LocalContext.current
+    val options = listOf(
+        Triple(KanjiWidgetProvider::class.java, R.string.widget_word_name, R.string.widget_description),
+        Triple(KanjiTileWidget::class.java, R.string.widget_tile_name, R.string.widget_tile_description),
+        Triple(StreakWidget::class.java, R.string.widget_streak_name, R.string.widget_streak_description),
+        Triple(StudyWidget::class.java, R.string.widget_study_name, R.string.widget_study_description)
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Ink.BgMid,
+        title = { Text(stringResource(R.string.add_widget)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                options.forEach { (cls, name, sub) ->
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Ink.Glass)
+                            .clickable {
+                                onDismiss()
+                                if (!Widgets.pin(ctx, cls)) Toast.makeText(ctx, R.string.pin_unsupported, Toast.LENGTH_LONG).show()
+                            }
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(name), style = MaterialTheme.typography.titleSmall, color = Ink.Text)
+                            Text(stringResource(sub), style = MaterialTheme.typography.labelMedium, color = Ink.Muted)
+                        }
+                        Icon(Ic.add, null, Modifier.size(20.dp), tint = Ink.Muted)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel), color = Ink.Text) } }
+    )
+}
+
+//only ankiweb decks get a tag, the rest dont need one
 @Composable
 fun SourceTag(s: DeckSource) {
+    if (s != DeckSource.ANKIDROID) return
     Row(
         Modifier.clip(CircleShape).background(Ink.Glass).padding(horizontal = 9.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -1128,14 +1207,17 @@ private fun AnkiDroidSession(deck: Deck, tick: Int, focusOpen: Boolean, onCloseF
 }
 
 //type the reading, right answer jumps to the next one, nothing gets scheduled
+//listen is the same thing but u only get the sound until its revealed
 @Composable
-private fun PracticeSession(deck: Deck, focusOpen: Boolean, onCloseFocus: () -> Unit) {
+private fun PracticeSession(deck: Deck, focusOpen: Boolean, onCloseFocus: () -> Unit, listen: Boolean = false) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var round by remember(deck.id) { mutableIntStateOf(0) }
     val loaded by produceState<Result<List<DeckCard>>?>(null, deck.id, round) {
-        value = withContext(Dispatchers.IO) { runCatching { Study.practiceCards(ctx, deck) } }
+        value = withContext(Dispatchers.IO) { runCatching { if (listen) Study.listenCards(ctx, deck) else Study.practiceCards(ctx, deck) } }
     }
+    val speaker = remember { if (listen) Speaker(ctx) else null }
+    DisposableEffect(Unit) { onDispose { speaker?.shutdown() } }
     var index by remember(deck.id, round) { mutableIntStateOf(0) }
     var right by remember(deck.id, round) { mutableIntStateOf(0) }
     var streak by remember(deck.id, round) { mutableIntStateOf(0) }
@@ -1145,6 +1227,9 @@ private fun PracticeSession(deck: Deck, focusOpen: Boolean, onCloseFocus: () -> 
     val card = list.getOrNull(index)
     val st = card?.let { rememberAnswer(it) }
     val focusReq = remember { FocusRequester() }
+    val say = { card?.let { speaker?.speak(Study.spoken(it)) }; Unit }
+    LaunchedEffect(card?.id) { if (listen) say() }
+    val front: (@Composable () -> Unit)? = if (!listen || st == null || card == null) null else { { ListenFront(card, st.revealed, say) } }
 
     fun miss() { missed[index] = true; streak = 0 }
     fun advance() { index++ }
@@ -1152,7 +1237,12 @@ private fun PracticeSession(deck: Deck, focusOpen: Boolean, onCloseFocus: () -> 
         val s = st ?: return
         if (s.revealed) return
         if (s.correct) {
-            if (missed[index] != true) { right++; streak++ }
+            if (missed[index] != true) {
+                right++; streak++
+                GameStats.right(ctx, if (listen) "listen" else "reading", streak)
+                if (index == list.lastIndex && right == list.size && list.size >= 20) GameStats.flawlessRound(ctx)
+                Achievements.announce(ctx)
+            }
             s.revealed = true
             Sfx.play(ctx, 2)
             val at = index
@@ -1173,7 +1263,7 @@ private fun PracticeSession(deck: Deck, focusOpen: Boolean, onCloseFocus: () -> 
     val empty: @Composable () -> Unit = {
         when {
             loaded == null -> Text(stringResource(R.string.deck_linked_loading), color = Ink.Muted)
-            list.isEmpty() -> EmptyState("練", stringResource(R.string.practice_empty_title), stringResource(R.string.practice_empty_body))
+            list.isEmpty() -> EmptyState("練", stringResource(R.string.practice_empty_title), stringResource(if (listen) R.string.listen_empty_body else R.string.practice_empty_body))
             else -> Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 EmptyState("済", stringResource(R.string.practice_done_title), stringResource(R.string.practice_done_body, right, list.size))
                 WhitePill(stringResource(R.string.practice_restart)) { round++ }
@@ -1193,11 +1283,11 @@ private fun PracticeSession(deck: Deck, focusOpen: Boolean, onCloseFocus: () -> 
         Column(Modifier.bringIntoViewRequester(bring), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             GlassCard(Modifier.fillMaxWidth(), high = true, padding = PaddingValues(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Kicker(stringResource(R.string.practice_kicker), Modifier.weight(1f))
+                    Kicker(stringResource(if (listen) R.string.mode_listen_kicker else R.string.practice_kicker), Modifier.weight(1f))
                     Kicker(stringResource(R.string.practice_progress, index + 1, list.size))
                 }
                 Spacer(Modifier.height(16.dp))
-                CardFront(card.front)
+                if (front != null) front() else CardFront(card.front)
                 Spacer(Modifier.height(16.dp))
                 AnswerField(st, keepKeyboard = true, focusRequester = focusReq, bring = bring, onChange = { checkTyped() }, onSubmit = { submit() })
                 AnimatedVisibility(st.revealed, enter = fadeIn() + expandVertically()) { RevealBlock(st, showVerdict = false) }
@@ -1215,7 +1305,7 @@ private fun PracticeSession(deck: Deck, focusOpen: Boolean, onCloseFocus: () -> 
             title = deck.name, sub = stringResource(R.string.practice_progress, minOf(index + 1, list.size), list.size),
             onClose = onCloseFocus, onPrevious = previous,
             card = card, st = st, hint = null,
-            onChange = { checkTyped() }, onSubmit = { submit() },
+            onChange = { checkTyped() }, onSubmit = { submit() }, front = front,
             actions = {
                 if (card != null) {
                     WhitePill(stringResource(if (st?.revealed == true) R.string.practice_next else R.string.practice_show), Modifier.weight(1f)) { show() }
@@ -1224,6 +1314,164 @@ private fun PracticeSession(deck: Deck, focusOpen: Boolean, onCloseFocus: () -> 
             },
             empty = empty
         )
+    }
+}
+
+//pick 1 of 4, meaning shows the word and reverse shows the meaning
+@Composable
+private fun ChoiceSession(deck: Deck, reverse: Boolean, focusOpen: Boolean, onCloseFocus: () -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var round by remember(deck.id) { mutableIntStateOf(0) }
+    val loaded by produceState<Result<List<DeckCard>>?>(null, deck.id, round) {
+        value = withContext(Dispatchers.IO) { runCatching { Study.choiceCards(ctx, deck) } }
+    }
+    var index by remember(deck.id, round) { mutableIntStateOf(0) }
+    var right by remember(deck.id, round) { mutableIntStateOf(0) }
+    var streak by remember(deck.id, round) { mutableIntStateOf(0) }
+    val picked = remember(deck.id, round) { mutableStateMapOf<Int, String>() }
+
+    val all = loaded?.getOrNull().orEmpty()
+    //need 4 different answers or theres nothing to pick from
+    val enough = remember(all) { all.map { (if (reverse) it.front else it.meaning).trim().lowercase() }.distinct().size >= 4 }
+    val list = if (enough) all else emptyList()
+    val card = list.getOrNull(index)
+    val answer = card?.let { (if (reverse) it.front else it.meaning).trim() }
+    //same seed so going back shows the same 4
+    val options = remember(card?.id, round) { card?.let { Study.choices(list, it, reverse, kotlin.random.Random(it.id.hashCode() + round)) }.orEmpty() }
+
+    fun advance() { index++ }
+    fun pick(o: String) {
+        if (picked.containsKey(index) || card == null) return
+        picked[index] = o
+        if (o == answer) {
+            right++; streak++
+            GameStats.right(ctx, if (reverse) "reverse" else "meaning", streak)
+            if (index == list.lastIndex && right == list.size && list.size >= 20) GameStats.flawlessRound(ctx)
+            Achievements.announce(ctx)
+            Sfx.play(ctx, 2)
+            val at = index
+            scope.launch { delay(650); if (index == at) advance() }
+        } else {
+            streak = 0
+            Haptics.wrong(ctx)
+        }
+    }
+    val previous: (() -> Unit)? = if (index == 0 || list.isEmpty()) null else { { index-- } }
+    val progress = stringResource(R.string.practice_progress, minOf(index + 1, list.size), list.size)
+
+    val empty: @Composable () -> Unit = {
+        when {
+            loaded == null -> Text(stringResource(R.string.deck_linked_loading), color = Ink.Muted)
+            list.isEmpty() -> EmptyState("選", stringResource(R.string.choice_empty_title), stringResource(R.string.choice_empty_body))
+            else -> Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                EmptyState("済", stringResource(R.string.practice_done_title), stringResource(R.string.practice_done_body, right, list.size))
+                WhitePill(stringResource(R.string.practice_restart)) { round++ }
+            }
+        }
+    }
+    val buttons: @Composable RowScope.() -> Unit = {
+        WhitePill(stringResource(if (picked.containsKey(index)) R.string.practice_next else R.string.practice_skip), Modifier.weight(1f)) { advance() }
+    }
+
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        CountTile(minOf(index + 1, list.size), stringResource(R.string.practice_tile_card, list.size), Ink.Easy, Modifier.weight(1f))
+        CountTile(streak, stringResource(R.string.practice_tile_streak), Ink.Flame, Modifier.weight(1f))
+        CountTile(right, stringResource(R.string.practice_tile_right), Ink.Good, Modifier.weight(1f))
+    }
+    if (card == null || answer == null) {
+        GlassCard(Modifier.fillMaxWidth()) { empty() }
+    } else if (!focusOpen) {
+        ChoiceCard(card, reverse, progress, options, answer, picked[index]) { pick(it) }
+        Row(Modifier.followReveal(picked.containsKey(index)), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (previous != null) GlassIconButton(Ic.chevronLeft, stringResource(R.string.previous_cd), size = 46.dp, onClick = previous)
+            buttons()
+        }
+    }
+
+    if (focusOpen) {
+        FocusDialog(onCloseFocus) {
+            FocusFrame(deck.name, progress, onCloseFocus, previous) {
+                if (card == null || answer == null) GlassCard(Modifier.fillMaxWidth(), high = true) { empty() }
+                else {
+                    ChoiceCard(card, reverse, progress, options, answer, picked[index]) { pick(it) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), content = buttons)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChoiceCard(card: DeckCard, reverse: Boolean, progress: String, options: List<String>, answer: String, picked: String?, onPick: (String) -> Unit) {
+    GlassCard(Modifier.fillMaxWidth(), high = true, padding = PaddingValues(20.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Kicker(stringResource(if (reverse) R.string.mode_reverse_kicker else R.string.mode_meaning_kicker), Modifier.weight(1f))
+            Kicker(progress)
+        }
+        Spacer(Modifier.height(16.dp))
+        if (reverse) Text(
+            card.meaning, style = MaterialTheme.typography.headlineSmall, color = Ink.Text,
+            textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()
+        ) else CardFront(card.front)
+        AnimatedVisibility(picked != null, enter = fadeIn() + expandVertically()) {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                if (card.reading.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(card.reading, style = MaterialTheme.typography.titleLarge.merge(JapaneseText), color = Ink.Muted, textAlign = TextAlign.Center)
+                }
+            }
+        }
+        Spacer(Modifier.height(18.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.forEach { o -> ChoiceButton(o, reverse, picked, answer) { onPick(o) } }
+        }
+    }
+}
+
+@Composable
+private fun ChoiceButton(text: String, japanese: Boolean, picked: String?, answer: String, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(14.dp)
+    //after picking, right one goes green and the wrong pick goes red
+    val tone = when {
+        picked == null -> null
+        text == answer -> Ink.Good
+        text == picked -> Ink.Again
+        else -> null
+    }
+    val dim = picked != null && tone == null
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(tone?.copy(alpha = 0.18f) ?: Ink.Glass)
+            .border(1.dp, tone?.copy(alpha = 0.6f) ?: Ink.GlassStroke, shape)
+            .clickable(enabled = picked == null, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = if (japanese) 12.dp else 14.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text,
+            style = if (japanese) MaterialTheme.typography.titleLarge.merge(JapaneseText) else MaterialTheme.typography.bodyLarge,
+            color = if (dim) Ink.Faint else Ink.Text,
+            textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+//big speaker button, the word only shows up after u answer
+@Composable
+private fun ListenFront(card: DeckCard, revealed: Boolean, onPlay: () -> Unit) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        if (revealed) {
+            CardFront(card.front)
+            Spacer(Modifier.height(8.dp))
+            GlassIconButton(Ic.volume, stringResource(R.string.mode_play_again), size = 40.dp, iconSize = 20.dp, onClick = onPlay)
+        } else {
+            GlassIconButton(Ic.volume, stringResource(R.string.mode_play_again), size = 92.dp, iconSize = 40.dp, onClick = onPlay)
+            Spacer(Modifier.height(8.dp))
+            Text(stringResource(R.string.mode_play_again), style = MaterialTheme.typography.labelMedium, color = Ink.Muted)
+        }
     }
 }
 
@@ -1487,43 +1735,43 @@ private fun FocusModal(
     onSubmit: () -> Unit,
     onChange: () -> Unit = {},
     actions: @Composable RowScope.() -> Unit,
-    empty: @Composable () -> Unit
+    empty: @Composable () -> Unit,
+    front: (@Composable () -> Unit)? = null
 ) {
+    FocusDialog(onClose) { FocusBody(title, sub, onClose, onPrevious, card, st, hint, onSubmit, onChange, actions, empty, front) }
+}
+
+@Composable
+private fun FocusDialog(onClose: () -> Unit, content: @Composable () -> Unit) {
     Dialog(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
         val view = LocalView.current
+        DisposableEffect(Unit) { Popups.focusOpen++; onDispose { Popups.focusOpen-- } }
         SideEffect {
             (view.parent as? DialogWindowProvider)?.window?.let { w ->
                 w.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
                 w.setDimAmount(0f)
             }
         }
-        FocusBody(title, sub, onClose, onPrevious, card, st, hint, onSubmit, onChange, actions, empty)
+        Box {
+            content()
+            AchievementPopup(focus = true)
+        }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+//the dark backdrop and the top row, every focus screen sits inside this
 @Composable
-fun FocusBody(
+fun FocusFrame(
     title: String,
     sub: String,
     onClose: () -> Unit,
     onPrevious: (() -> Unit)?,
-    card: DeckCard?,
-    st: AnswerState?,
-    hint: String?,
-    onSubmit: () -> Unit,
-    onChange: () -> Unit,
-    actions: @Composable RowScope.() -> Unit,
-    empty: @Composable () -> Unit
+    content: @Composable ColumnScope.() -> Unit
 ) {
     val focus = LocalFocusManager.current
-    val req = remember { FocusRequester() }
-    val ime = WindowInsets.isImeVisible
-    LaunchedEffect(Unit) { delay(250); runCatching { req.requestFocus() } }
-
     Box(
         Modifier
             .fillMaxSize()
@@ -1551,21 +1799,205 @@ fun FocusBody(
                 }
                 GlassIconButton(Ic.close, stringResource(R.string.focus_close), size = 40.dp, onClick = onClose)
             }
+            content()
+        }
+    }
+}
 
-            if (card == null || st == null) {
-                GlassCard(Modifier.fillMaxWidth(), high = true) { empty() }
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically, content = actions)
-                GlassCard(Modifier.fillMaxWidth(), high = true, padding = PaddingValues(if (ime) 16.dp else 22.dp)) {
-                    Kicker(card.instructions.ifBlank { stringResource(if (st.canType) R.string.instruction else R.string.instruction_recall) })
-                    Spacer(Modifier.height(if (ime) 6.dp else 14.dp))
-                    CardFront(card.front, small = ime)
-                    AnimatedVisibility(st.revealed, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-                        RevealBlock(st)
-                    }
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun FocusBody(
+    title: String,
+    sub: String,
+    onClose: () -> Unit,
+    onPrevious: (() -> Unit)?,
+    card: DeckCard?,
+    st: AnswerState?,
+    hint: String?,
+    onSubmit: () -> Unit,
+    onChange: () -> Unit,
+    actions: @Composable RowScope.() -> Unit,
+    empty: @Composable () -> Unit,
+    front: (@Composable () -> Unit)? = null
+) {
+    val req = remember { FocusRequester() }
+    val ime = WindowInsets.isImeVisible
+    LaunchedEffect(Unit) { delay(250); runCatching { req.requestFocus() } }
+
+    FocusFrame(title, sub, onClose, onPrevious) {
+        if (card == null || st == null) {
+            GlassCard(Modifier.fillMaxWidth(), high = true) { empty() }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically, content = actions)
+            GlassCard(Modifier.fillMaxWidth(), high = true, padding = PaddingValues(if (ime) 16.dp else 22.dp)) {
+                Kicker(card.instructions.ifBlank { stringResource(if (st.canType) R.string.instruction else R.string.instruction_recall) })
+                Spacer(Modifier.height(if (ime) 6.dp else 14.dp))
+                if (front != null) front() else CardFront(card.front, small = ime)
+                AnimatedVisibility(st.revealed, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+                    RevealBlock(st)
                 }
-                AnswerField(st, keepKeyboard = true, focusRequester = req, onChange = onChange, onSubmit = onSubmit)
-                if (hint != null) Text(hint, style = MaterialTheme.typography.labelSmall, color = Ink.Faint, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            }
+            AnswerField(st, keepKeyboard = true, focusRequester = req, onChange = onChange, onSubmit = onSubmit)
+            if (hint != null) Text(hint, style = MaterialTheme.typography.labelSmall, color = Ink.Faint, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+//everything about how ur doing, opened from the chart icon on the study tab
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StatsSheet(deck: Deck, tick: Int, onDismiss: () -> Unit) {
+    val ctx = LocalContext.current
+    val log = remember(tick) { RevLog.all(ctx) }
+    val days = remember(tick) { ActivityLog.days(ctx) }
+    val kept = remember(tick) { AcceptedStore.all(ctx).size }
+    val earned = remember(tick) { Achievements.earned(ctx) }
+    val progress = remember(tick) { Achievements.progress(ctx) }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Ink.BgMid, contentColor = Ink.Text
+    ) {
+        StatsBody(deck, log, days.keys, kept, earned, progress) { if (!deck.isLinked) InsightsCard(deck.id, tick) }
+    }
+}
+
+@Composable
+fun StatsBody(
+    deck: Deck,
+    log: List<RevLog.Entry>,
+    days: Set<String>,
+    kept: Int,
+    earned: Map<String, String>,
+    progress: Achievements.Progress,
+    insights: @Composable () -> Unit
+) {
+    val ctx = LocalContext.current
+    val streak = remember(days) { ActivityLog.streak(days) }
+    val now = System.currentTimeMillis()
+    val month = log.filter { it.t >= now - 30 * Scheduler.DAY }
+    val perDay = remember(log) {
+        val c = Calendar.getInstance()
+        val counts = log.filter { it.t >= now - 31 * Scheduler.DAY }.groupingBy { ActivityLog.dayKey(it.t) }.eachCount()
+        (29 downTo 0).map { back -> counts[ActivityLog.dayKey((c.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, -back) })] ?: 0 }
+    }
+    val mine = log.filter { it.deck == deck.id }
+    val grades = (1..4).map { g -> mine.count { it.grade == g } }
+
+    Column(
+        Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 18.dp).padding(bottom = 28.dp).navigationBarsPadding(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(stringResource(R.string.stats_title), style = MaterialTheme.typography.headlineSmall, color = Ink.Text)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Metric(log.size.toString(), stringResource(R.string.stats_total_reviews), Modifier.weight(1f))
+            Metric(month.size.toString(), stringResource(R.string.stats_30d), Modifier.weight(1f))
+            Metric("${streak.current} / ${streak.longest}", stringResource(R.string.stats_streak), Modifier.weight(1f))
+        }
+
+        GlassCard(Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.stats_per_day), style = MaterialTheme.typography.titleMedium, color = Ink.Text)
+            Spacer(Modifier.height(12.dp))
+            val max = (perDay.maxOrNull() ?: 0).coerceAtLeast(1)
+            Row(Modifier.fillMaxWidth().height(80.dp), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.Bottom) {
+                perDay.forEachIndexed { i, v ->
+                    Box(
+                        Modifier.weight(1f).height((70f * v / max).dp.coerceAtLeast(3.dp)).clip(RoundedCornerShape(3.dp))
+                            .background(if (i == perDay.lastIndex) Ink.Flame else if (v > 0) Ink.Good.copy(alpha = 0.7f) else Ink.GlassHigh)
+                    )
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Row {
+                Text(stringResource(R.string.stats_30_ago), style = MaterialTheme.typography.labelSmall, color = Ink.Faint, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.today_short), style = MaterialTheme.typography.labelSmall, color = Ink.Faint)
+            }
+        }
+
+        if (mine.isNotEmpty()) GlassCard(Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.stats_answers, deck.name), style = MaterialTheme.typography.titleMedium, color = Ink.Text)
+            Spacer(Modifier.height(12.dp))
+            val colors = listOf(Ink.Again, Ink.Hard, Ink.Good, Ink.Easy)
+            Row(Modifier.fillMaxWidth().height(12.dp).clip(CircleShape)) {
+                grades.forEachIndexed { i, n -> if (n > 0) Box(Modifier.weight(n.toFloat()).fillMaxHeight().background(colors[i])) }
+            }
+            Spacer(Modifier.height(10.dp))
+            val names = listOf(R.string.grade_again, R.string.grade_hard, R.string.grade_good, R.string.grade_easy)
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                grades.forEachIndexed { i, n -> Legend(colors[i], stringResource(names[i]), n * 100 / mine.size.coerceAtLeast(1)) }
+            }
+            Text(stringResource(R.string.stats_percent_note), style = MaterialTheme.typography.labelSmall, color = Ink.Faint)
+        }
+
+        insights()
+
+        //achievements by category, the game mode ones fill up as u play them
+        Row(Modifier.padding(start = 4.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Kicker(stringResource(R.string.stats_achievements), Modifier.weight(1f))
+            Text(
+                stringResource(R.string.stats_achievements_count, Achievements.all.count { it.id in earned }, Achievements.all.size),
+                style = MaterialTheme.typography.labelMedium, color = Ink.Muted
+            )
+        }
+        Achievements.all.groupBy { Achievements.group(it.kind) }.forEach { (group, list) ->
+            AchievementGroup(group, list, earned, progress)
+        }
+        if (kept > 0) Text(stringResource(R.string.stats_kept, kept), style = MaterialTheme.typography.labelMedium, color = Ink.Muted)
+    }
+}
+
+//one row per category, tap the header to see the rest
+@Composable
+private fun AchievementGroup(group: Achievements.Group, list: List<Achievements.A>, earned: Map<String, String>, progress: Achievements.Progress) {
+    var open by rememberSaveable(group) { mutableStateOf(false) }
+    //closed it shows what ur working on next, plus the latest one u got if theres room
+    val peek = remember(list, earned) {
+        val next = list.groupBy { it.kind }.values.mapNotNull { k -> k.firstOrNull { it.id !in earned } }
+        val got = list.filter { it.id in earned }.sortedByDescending { earned[it.id] }
+        (next + got).distinct().take(3).sortedBy { list.indexOf(it) }
+    }
+    GlassCard(Modifier.fillMaxWidth().animateContentSize(), padding = PaddingValues(12.dp)) {
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { open = !open }.padding(vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(groupIcon(group), null, Modifier.size(18.dp), tint = Ink.Hard)
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(groupName(group)), style = MaterialTheme.typography.titleSmall, color = Ink.Text, modifier = Modifier.weight(1f))
+            Text("${list.count { it.id in earned }} / ${list.size}", style = MaterialTheme.typography.labelMedium, color = Ink.Muted)
+            Spacer(Modifier.width(6.dp))
+            Icon(if (open) Ic.expandLess else Ic.expandMore, null, Modifier.size(20.dp), tint = Ink.Muted)
+        }
+        Spacer(Modifier.height(10.dp))
+        (if (open) list else peek).chunked(3).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+                row.forEach { m -> AchievementTile(m, earned[m.id], progress.of(m.kind), Modifier.weight(1f)) }
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AchievementTile(m: Achievements.A, got: String?, have: Int, modifier: Modifier) {
+    val ctx = LocalContext.current
+    val shape = RoundedCornerShape(12.dp)
+    Column(
+        modifier.clip(shape)
+            .background(if (got != null) Ink.Hard.copy(alpha = 0.14f) else Ink.Glass)
+            .border(1.dp, if (got != null) Ink.Hard.copy(alpha = 0.45f) else Ink.GlassStroke, shape)
+            .padding(10.dp)
+    ) {
+        Icon(Ic.star, null, Modifier.size(14.dp), tint = if (got != null) Ink.Hard else Ink.Faint)
+        Spacer(Modifier.height(4.dp))
+        Text(achName(ctx, m), style = MaterialTheme.typography.labelLarge, color = if (got != null) Ink.Text else Ink.Muted, maxLines = 2, lineHeight = 16.sp)
+        Text(achDesc(ctx, m), style = MaterialTheme.typography.labelSmall, color = Ink.Faint, maxLines = 2, minLines = 2, lineHeight = 13.sp)
+        Spacer(Modifier.height(6.dp))
+        if (got != null) Text(runCatching { msDate.format(dateIn.parse(got)!!) }.getOrDefault(got), style = MaterialTheme.typography.labelSmall, color = Ink.Hard)
+        else {
+            //little bar so u can see how close u are
+            Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(Ink.GlassHigh)) {
+                Box(Modifier.fillMaxWidth((have.toFloat() / m.goal).coerceIn(0f, 1f)).fillMaxHeight().background(Ink.Good.copy(alpha = 0.8f)))
             }
         }
     }
@@ -1692,6 +2124,10 @@ fun WordsScreen(tick: Int, snackbar: SnackbarHostState) {
                         DropdownMenuItem(
                             text = { Column { Text(stringResource(R.string.export_anki)); Text(stringResource(R.string.export_anki_short), style = MaterialTheme.typography.labelSmall, color = Ink.Muted) } },
                             onClick = { menu = false; Exporter.shareAnki(ctx) }
+                        )
+                        DropdownMenuItem(
+                            text = { Column { Text(stringResource(R.string.export_apkg)); Text(stringResource(R.string.export_apkg_short), style = MaterialTheme.typography.labelSmall, color = Ink.Muted) } },
+                            onClick = { menu = false; Exporter.shareApkg(ctx) }
                         )
                     }
                 }
@@ -1874,7 +2310,7 @@ private fun DeckCardRow(c: DeckCard) {
 }
 
 @Composable
-private fun SearchField(value: String, onChange: (String) -> Unit, modifier: Modifier, hint: Int = R.string.search_hint) {
+private fun SearchField(value: String, onChange: (String) -> Unit, modifier: Modifier, hint: Int = R.string.search_hint, trailing: (@Composable () -> Unit)? = null) {
     Row(
         modifier
             .fillMaxWidth()
@@ -1895,12 +2331,14 @@ private fun SearchField(value: String, onChange: (String) -> Unit, modifier: Mod
                 modifier = Modifier.fillMaxWidth()
             )
         }
+        if (trailing != null) { Spacer(Modifier.width(8.dp)); trailing() }
     }
 }
 
 
 private val dateIn = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 private val dateOut = SimpleDateFormat("EEE, d MMM", Locale.getDefault())
+private val msDate = SimpleDateFormat("d MMM yyyy", Locale.getDefault())
 
 
 @Composable
@@ -1948,7 +2386,11 @@ private fun DictionaryPane(tick: Int, snackbar: SnackbarHostState, deckKeys: Set
         }
     }
 
-    SearchField(query, { query = it }, Modifier.padding(horizontal = 16.dp, vertical = 12.dp), hint = R.string.dict_search_hint)
+    var drawing by remember { mutableStateOf(false) }
+    SearchField(query, { query = it }, Modifier.padding(horizontal = 16.dp, vertical = 12.dp), hint = R.string.dict_search_hint) {
+        GlassIconButton(Ic.pen, stringResource(R.string.draw_cd), size = 30.dp, iconSize = 16.dp, tint = Ink.Muted) { drawing = true }
+    }
+    if (drawing) DrawSheet(onPick = { query += it }, onDismiss = { drawing = false })
     if (query.isBlank()) {
         GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             EmptyState(
@@ -2084,6 +2526,7 @@ fun SettingsScreen(tick: Int, snackbar: SnackbarHostState) {
     var sfx by remember { mutableStateOf(Prefs.sfx(ctx)) }
     var vibrate by remember { mutableStateOf(Prefs.vibrate(ctx)) }
     var widgetDark by remember { mutableStateOf(Prefs.widgetDark(ctx)) }
+    var widgetPicker by remember { mutableStateOf(false) }
     var remindDaily by remember { mutableStateOf(Prefs.remindDaily(ctx)) }
     var remindStreak by remember { mutableStateOf(Prefs.remindStreak(ctx)) }
     var remindAt by remember { mutableIntStateOf(Prefs.remindMinutes(ctx)) }
@@ -2207,15 +2650,16 @@ fun SettingsScreen(tick: Int, snackbar: SnackbarHostState) {
                     }
                 }
                 Divider()
-                LinkRow(Ic.widgets, stringResource(R.string.add_widget), stringResource(R.string.add_widget_sub)) {
-                    if (!KanjiWidgetProvider.requestPin(ctx)) Toast.makeText(ctx, R.string.pin_unsupported, Toast.LENGTH_LONG).show()
-                }
+                LinkRow(Ic.widgets, stringResource(R.string.add_widget), stringResource(R.string.add_widget_sub)) { widgetPicker = true }
+                if (widgetPicker) WidgetPickerDialog { widgetPicker = false }
             }
 
             Section(stringResource(R.string.section_data)) {
                 LinkRow(Ic.share, stringResource(R.string.export_csv), stringResource(R.string.export_csv_sub)) { Exporter.shareCsv(ctx) }
                 Divider()
                 LinkRow(Ic.cards, stringResource(R.string.export_anki), stringResource(R.string.export_anki_sub)) { Exporter.shareAnki(ctx) }
+                Divider()
+                LinkRow(Ic.cards, stringResource(R.string.export_apkg), stringResource(R.string.export_apkg_sub)) { Exporter.shareApkg(ctx) }
                 Divider()
                 LinkRow(Ic.download, stringResource(R.string.backup), stringResource(R.string.backup_sub)) {
                     backupOut.launch("KanjiLock-backup-${ActivityLog.dayKey()}.json")
@@ -2642,4 +3086,137 @@ private fun Field(
         keyboardOptions = KeyboardOptions(imeAction = if (last) ImeAction.Done else ImeAction.Next),
         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
     )
+}
+
+
+//write a kanji with ur finger, tap what it guessed and it goes in the search box
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DrawSheet(onPick: (String) -> Unit, onDismiss: () -> Unit) {
+    var status by remember { mutableStateOf("checking") }
+    var attempt by remember { mutableIntStateOf(0) }
+    LaunchedEffect(attempt) {
+        status = "checking"
+        status = if (Handwriting.downloaded()) "ready" else {
+            status = "downloading"
+            if (runCatching { Handwriting.download() }.isSuccess) "ready" else "failed"
+        }
+    }
+    DisposableEffect(Unit) { onDispose { Handwriting.close() } }
+
+    val strokes = remember { mutableStateListOf<List<Handwriting.Pt>>() }
+    var guesses by remember { mutableStateOf<List<String>>(emptyList()) }
+    LaunchedEffect(strokes.size, status) {
+        if (status != "ready" || strokes.isEmpty()) { guesses = emptyList(); return@LaunchedEffect }
+        delay(150)
+        guesses = runCatching { Handwriting.read(strokes.toList()) }.getOrDefault(emptyList())
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetGesturesEnabled = false, //otherwise drawing down drags the sheet away
+        containerColor = Ink.BgMid, contentColor = Ink.Text
+    ) {
+        DrawBody(status, strokes, guesses, onRetry = { attempt++ }, onClose = onDismiss) { g -> onPick(g); strokes.clear() }
+    }
+}
+
+@Composable
+fun DrawBody(
+    status: String,
+    strokes: androidx.compose.runtime.snapshots.SnapshotStateList<List<Handwriting.Pt>>,
+    guesses: List<String>,
+    onRetry: () -> Unit,
+    onClose: () -> Unit,
+    onPick: (String) -> Unit
+) {
+    val live = remember { mutableStateListOf<Handwriting.Pt>() }
+    val pen = Ink.Text
+    Column(
+        Modifier.padding(horizontal = 18.dp).padding(bottom = 24.dp).navigationBarsPadding(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.draw_title), style = MaterialTheme.typography.headlineSmall, color = Ink.Text)
+                Text(stringResource(R.string.draw_sub), style = MaterialTheme.typography.labelMedium, color = Ink.Muted)
+            }
+            GlassIconButton(Ic.close, stringResource(R.string.focus_close), size = 40.dp, onClick = onClose)
+        }
+
+        //guesses, biggest chance first
+        Row(
+            Modifier.fillMaxWidth().height(56.dp).horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically
+        ) {
+            when {
+                status == "downloading" || status == "checking" -> Text(stringResource(R.string.draw_downloading), style = MaterialTheme.typography.labelLarge, color = Ink.Muted)
+                status == "failed" -> {
+                    Text(stringResource(R.string.draw_failed), style = MaterialTheme.typography.labelMedium, color = Ink.Again, modifier = Modifier.weight(1f, fill = false))
+                    GhostPill(stringResource(R.string.draw_retry), onClick = onRetry)
+                }
+                guesses.isEmpty() -> Text(stringResource(R.string.draw_empty), style = MaterialTheme.typography.labelLarge, color = Ink.Faint)
+                else -> guesses.forEachIndexed { i, g ->
+                    Box(
+                        Modifier.clip(RoundedCornerShape(12.dp))
+                            .background(if (i == 0) Ink.Pill.copy(alpha = 0.85f) else Ink.Glass)
+                            .border(1.dp, Ink.GlassStroke, RoundedCornerShape(12.dp))
+                            .clickable { onPick(g) }
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Text(g, style = MaterialTheme.typography.titleLarge.merge(JapaneseText), color = if (i == 0) Ink.OnWhite else Ink.Text)
+                    }
+                }
+            }
+        }
+
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Ink.Glass)
+                .border(1.dp, Ink.GlassStroke, RoundedCornerShape(20.dp))
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown()
+                        down.consume()
+                        live.clear()
+                        live.add(Handwriting.Pt(down.position.x, down.position.y, System.currentTimeMillis()))
+                        while (true) {
+                            val ch = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                            if (!ch.pressed) break
+                            live.add(Handwriting.Pt(ch.position.x, ch.position.y, System.currentTimeMillis()))
+                            ch.consume()
+                        }
+                        if (live.isNotEmpty()) strokes.add(live.toList())
+                        live.clear()
+                    }
+                }
+        ) {
+            //faint cross so its easier to keep the kanji centered
+            Canvas(Modifier.fillMaxSize()) {
+                val guide = Ink.GlassStroke
+                drawLine(guide, Offset(size.width / 2, 16f), Offset(size.width / 2, size.height - 16f), 1.dp.toPx())
+                drawLine(guide, Offset(16f, size.height / 2), Offset(size.width - 16f, size.height / 2), 1.dp.toPx())
+                val w = 6.dp.toPx()
+                (strokes + listOf(live.toList())).forEach { s ->
+                    if (s.isEmpty()) return@forEach
+                    if (s.size == 1) { drawCircle(pen, w / 2, Offset(s[0].x, s[0].y)); return@forEach }
+                    val path = androidx.compose.ui.graphics.Path().apply {
+                        moveTo(s[0].x, s[0].y)
+                        for (i in 1 until s.size) lineTo(s[i].x, s[i].y)
+                    }
+                    drawPath(path, pen, style = androidx.compose.ui.graphics.drawscope.Stroke(w, cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+                }
+            }
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            GhostPill(stringResource(R.string.draw_undo), Modifier.weight(1f), icon = Ic.undo) { if (strokes.isNotEmpty()) strokes.removeAt(strokes.lastIndex) }
+            GhostPill(stringResource(R.string.draw_clear), Modifier.weight(1f), icon = Ic.delete) { strokes.clear() }
+        }
+        Text(stringResource(R.string.draw_privacy), style = MaterialTheme.typography.labelSmall, color = Ink.Faint, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+    }
 }
