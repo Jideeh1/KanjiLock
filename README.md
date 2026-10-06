@@ -27,22 +27,31 @@ made it cuz i kept forgeting to study and i look at my lock screen like 200 time
 
 <br>
 
-<table align="center">
+<table>
 <tr>
-<td width="55%" valign="middle">
+<td width="50%" valign="top">
 
-<b>daily word</b> · home and lock screen widget<br><br>
-<b>study</b> · anki style reviews, type in romaji<br><br>
-<b>decks</b> · anki, kotoba and ankidroid<br><br>
-<b>progress</b> · streaks, flame calendar, stats<br>
-<b>dictionary</b> · 218k words, fully offline
+<b>daily word</b><br>
+widget for the home screen and lock screen, plus a lock screen notification. words per day is up to you
+<br><br>
+<b>study</b><br>
+anki style reviews. type the reading in romaji and it turns into kana as you type
+<br><br>
+<b>decks</b><br>
+import anki <code>.apkg</code> or kotoba <code>.csv</code>, or link ankidroid so reviews sync to ankiweb
+<br><br>
+<b>progress</b><br>
+streak calendar where every day is a flame that fills up, plus retention stats
+<br><br>
+<b>dictionary</b><br>
+218k words and 3k kanji, works fully offline
 
 </td>
-<td width="45%" valign="middle" align="center">
+<td width="50%" valign="top" align="center">
 
 <img src="docs/widget.png" width="100%" alt="home screen widget">
 
-<sub>X rejects, gray rerolls, check keeps</sub>
+<sub>red X rejects it, gray rerolls, green keeps it</sub>
 
 </td>
 </tr>
@@ -142,23 +151,8 @@ do this before each release, the edrdg licence wants the data kept up to date
 
 ## credits
 
-<table align="center">
-<tr><th></th><th>source</th><th>license</th></tr>
-<tr><td>words</td><td><a href="https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project">JMdict</a> by the EDRDG</td><td><a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></td></tr>
-<tr><td>kanji</td><td><a href="https://www.edrdg.org/wiki/index.php/KANJIDIC_Project">KANJIDIC2</a> by the EDRDG</td><td><a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></td></tr>
-<tr><td>sentences</td><td><a href="https://tatoeba.org">Tatoeba</a></td><td><a href="https://creativecommons.org/licenses/by/2.0/fr/">CC BY 2.0 FR</a></td></tr>
-<tr><td>json data</td><td><a href="https://github.com/scriptin/jmdict-simplified">jmdict-simplified</a></td><td>CC BY-SA 4.0</td></tr>
-<tr><td>font</td><td><a href="https://github.com/rsms/inter">Inter</a></td><td><a href="https://openfontlicense.org">OFL 1.1</a></td></tr>
-</table>
+dictionary data from [JMdict and KANJIDIC2](https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project) by the EDRDG (CC BY-SA 4.0), example sentences from [Tatoeba](https://tatoeba.org) (CC BY 2.0 FR), font is [Inter](https://github.com/rsms/inter) (OFL). full list in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 
-<p align="center">the dictionary was condensed into a small sqlite db for the app, it stays under CC BY-SA</p>
-
-<br>
-
-<div align="center">
-
-[MIT license](LICENSE) · [privacy policy](PRIVACY_POLICY.md) · [third party notices](THIRD_PARTY_NOTICES.md)
+code is [MIT](LICENSE) · [privacy policy](PRIVACY_POLICY.md)
 
 <sub>not affiliated with Anki, AnkiDroid, Kotoba, Google or Samsung</sub>
-
-</div>
