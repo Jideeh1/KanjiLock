@@ -182,13 +182,13 @@
     <string name="grade_good">Good</string>
     <string name="grade_easy">Easy</string>
     <string name="words_kicker">%1$d words collected</string>
-    <string name="lists_sub">Deck, rejects and mined words</string>
+    <string name="lists_sub">Accepted, decks, rejects and mined words</string>
     <string name="export">Export</string>
     <string name="export_csv_short">Questions · Answers · Comment · Instructions · Render as</string>
     <string name="export_anki">Export for Anki</string>
     <string name="export_anki_short">Tab-separated · imports into a &app; deck</string>
     <string name="export_anki_sub">Anki 2.1.54+: File → Import, deck and note type are preset</string>
-    <string name="tab_accepted">Deck %1$d</string>
+    <string name="tab_accepted">Accepted %1$d</string>
     <string name="tab_rejected">Rejected %1$d</string>
     <string name="tab_mined_n">Mined %1$d</string>
     <string name="section_study">Study</string>
@@ -301,5 +301,100 @@
     <string name="licenses_sub">Dictionary data, example sentences, font, libraries</string>
     <string name="tatoeba_link">Sentence #%1$s on Tatoeba</string>
     <string name="close">Close</string>
-    <string name="privacy_body">&app; has no accounts and no servers of its own. Your words, decks, review history and settings are stored only on this phone.\n\nGoogle Drive (optional). If you link Drive, the app saves one file, kanjilock-data.json, in a &app; folder in your own Google Drive. It uses the drive.file permission, which only lets the app see files it created itself. The file travels directly between your phone and Google over an encrypted connection. You can unlink at any time, and Delete Drive copy removes the file from Drive. &app;\'s use of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements.\n\nAnkiDroid (optional). If you connect AnkiDroid, the app reads decks from AnkiDroid on this phone and sends your review answers back to it. Nothing is sent anywhere else.\n\nSpeech uses the text-to-speech engine already on your phone.\n\nNo ads, analytics, crash reporting or tracking. Files you export or share go only where you send them.\n\nTo delete everything, clear the app\'s data or uninstall it, and use Delete Drive copy if you linked Drive.\n\nQuestions: use the developer contact on the app\'s store page.</string>
+    <string name="privacy_body">&app; has no accounts and no servers of its own. Your words, decks, review history and settings are stored only on this phone.\n\nGoogle Drive (optional). If you link Drive, the app saves one file, kanjilock-data.json, in a &app; folder in your own Google Drive. It uses the drive.file permission, which only lets the app see files it created itself. The file travels directly between your phone and Google over an encrypted connection. You can unlink at any time, and Delete Drive copy removes the file from Drive. &app;\'s use of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements.\n\nAnkiDroid (optional). If you connect AnkiDroid, the app reads decks from AnkiDroid on this phone and sends your review answers back to it. Nothing is sent anywhere else.\n\nSpeech uses the text-to-speech engine already on your phone.\n\nUpdate check. The GitHub version of the app asks api.github.com whether a newer release exists, at most every 6 hours, and downloads the new APK only when you tap Update. GitHub sees the request like any web visit. You can turn this off in Settings.\n\nNo ads, analytics, crash reporting or tracking. Files you export or share go only where you send them.\n\nTo delete everything, clear the app\'s data or uninstall it, and use Delete Drive copy if you linked Drive.\n\nQuestions: use the developer contact on the app\'s store page.</string>
+    <!--widgets-->
+    <string name="widget_tile_name">Kanji tile</string>
+    <string name="widget_tile_description">Just today\'s kanji, nothing else</string>
+    <string name="widget_streak_name">Streak</string>
+    <string name="widget_streak_description">Your streak and the last 7 days of flames</string>
+    <string name="widget_streak_label">day streak</string>
+    <string name="widget_streak_done">Done today · best %1$d</string>
+    <string name="widget_streak_todo">Not done yet today · best %1$d</string>
+    <string name="widget_week_cd">Activity for the last 7 days</string>
+    <string name="widget_study_name">Cards due</string>
+    <string name="widget_study_description">How many cards are waiting, tap to study</string>
+    <string name="widget_due_label">cards due</string>
+    <string name="widget_due_none">all caught up</string>
+    <string name="widget_due_sub">%1$d new · %2$d review</string>
+    <string name="widget_study_btn">Study</string>
+
+    <!--study extras-->
+    <string name="previous">Previous</string>
+    <string name="previous_cd">Go back to the previous card</string>
+    <string name="previous_readonly">Already sent to AnkiDroid, so this one can\'t be changed here.</string>
+    <string name="back_to_current">Back to current card</string>
+    <string name="focus_mode">Focus</string>
+    <string name="focus_close">Close focus mode</string>
+    <string name="focus_hint">Enter shows the answer · Enter again counts as Good</string>
+    <string name="practice_mode">Practice mode</string>
+    <string name="practice_sub">Type the reading, get it right and it moves on. Doesn\'t touch your reviews.</string>
+    <string name="practice_kicker">Practice</string>
+    <string name="practice_tile_card">Card of %1$d</string>
+    <string name="practice_tile_streak">In a row</string>
+    <string name="practice_tile_right">Right</string>
+    <string name="practice_skip">Skip</string>
+    <string name="practice_show">Show</string>
+    <string name="practice_next">Next</string>
+    <string name="practice_progress">%1$d / %2$d</string>
+    <string name="practice_streak">%1$d in a row</string>
+    <string name="practice_empty_title">Nothing to practice</string>
+    <string name="practice_empty_body">This deck has no cards with a reading to type.</string>
+    <string name="practice_done_title">Round done</string>
+    <string name="practice_done_body">%1$d right on the first try out of %2$d.</string>
+    <string name="practice_restart">Shuffle and go again</string>
+
+    <!--words decks tab-->
+    <string name="tab_decks">Decks %1$d</string>
+    <string name="decks_empty_title">No imported decks</string>
+    <string name="decks_empty_body">Import an Anki or Kotoba deck from the Study tab and its cards show up here.</string>
+    <string name="deck_cards_count">%1$d cards</string>
+    <string name="deck_linked_loading">Loading from AnkiDroid…</string>
+    <string name="deck_linked_error">Couldn\'t read this deck from AnkiDroid. Open AnkiDroid once and allow access.</string>
+
+    <!--ankiweb-->
+    <string name="ankiweb_title">Sync with AnkiWeb</string>
+    <string name="ankiweb_body">AnkiWeb only lets the official Anki apps sign in, so &app; syncs through AnkiDroid. Progress from Anki on your computer or any other phone comes in that way.</string>
+    <string name="ankiweb_step_install">Install AnkiDroid</string>
+    <string name="ankiweb_step_installed">AnkiDroid is installed</string>
+    <string name="ankiweb_step_sync">Sign in to AnkiWeb in AnkiDroid and sync</string>
+    <string name="ankiweb_step_sync_sub">Pulls your latest progress down from AnkiWeb</string>
+    <string name="ankiweb_step_allow">Let &app; use AnkiDroid</string>
+    <string name="ankiweb_step_allowed">Access allowed</string>
+    <string name="ankiweb_step_pick">Pick the deck to study here</string>
+    <string name="ankiweb_step_pick_sub">Reviews go to AnkiDroid, and AnkiDroid sends them to AnkiWeb</string>
+    <string name="ankiweb_step_link_this">Link \"%1$s\" to AnkiDroid</string>
+    <string name="btn_install">Install</string>
+    <string name="btn_open">Open</string>
+    <string name="btn_sync">Sync</string>
+    <string name="btn_allow">Allow</string>
+    <string name="btn_pick">Pick</string>
+    <string name="btn_link">Link</string>
+    <string name="ankiweb_sync_sent">Asked AnkiDroid to sync. If it says it\'s too soon, try again in a few minutes.</string>
+    <string name="ankiweb_sync_failed">Couldn\'t reach AnkiDroid</string>
+    <string name="ankidroid_store_missing">No app store found. Get AnkiDroid from ankidroid.org</string>
+
+    <!--settings extras-->
+    <string name="vibrate_title">Vibrate on mistakes</string>
+    <string name="vibrate_sub">Short buzz when what you type can\'t be right</string>
+    <!--updates-->
+    <string name="update_title">Update available</string>
+    <string name="update_version">Version %1$s · you have %2$s</string>
+    <string name="update_now">Update</string>
+    <string name="update_later">Later</string>
+    <string name="update_skip">Skip this version</string>
+    <string name="update_downloading">Downloading… %1$d%%</string>
+    <string name="update_install">Install</string>
+    <string name="update_allow">Android needs you to allow installs from &app; once. Turn it on, come back and tap Install.</string>
+    <string name="update_failed">Couldn\'t download the update: %1$s</string>
+    <string name="update_no_apk">This release has no APK attached yet.</string>
+    <string name="update_open_page">Open on GitHub</string>
+    <string name="section_updates">Updates</string>
+    <string name="update_auto_title">Check when the app opens</string>
+    <string name="update_auto_sub">Looks at the GitHub releases page, nothing else is sent</string>
+    <string name="update_check_title">Check for updates</string>
+    <string name="update_check_sub">You have %1$s · last checked %2$s</string>
+    <string name="update_never">never</string>
+    <string name="update_checking">Checking…</string>
+    <string name="update_latest">You\'re on the latest version</string>
+    <string name="update_check_failed">Couldn\'t reach GitHub. Try again later.</string>
 </resources>

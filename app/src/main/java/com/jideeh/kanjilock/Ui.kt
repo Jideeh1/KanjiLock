@@ -1,5 +1,16 @@
 package com.jideeh.kanjilock
 
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.AnimatedVisibility
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -133,7 +144,13 @@ class MainActivity : ComponentActivity() {
         Reminders.scheduleAll(this)
         LockScreenNotifier.ensureChannel(this)
         DailyWordManager.ensureToday(this)
+        AppNav.take(intent)
         setContent { KanjiTheme { KanjiApp() } }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent); AppNav.take(intent)
     }
 
     override fun onStart() { // drive pull
@@ -404,10 +421,12 @@ fun PillTabs(
     modifier: Modifier = Modifier,
     onSelect: (Int) -> Unit
 ) {
+    val scroll = options.size > 4
     Row(
         modifier
             .clip(RoundedCornerShape(14.dp))
             .background(Ink.Glass)
+            .then(if (scroll) Modifier.horizontalScroll(rememberScrollState()) else Modifier)
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
@@ -416,11 +435,11 @@ fun PillTabs(
             val bg by animateColorAsState(if (on) Color.White else Color.Transparent, label = "pill")
             Row(
                 Modifier
-                    .weight(1f)
+                    .then(if (scroll) Modifier else Modifier.weight(1f))
                     .clip(RoundedCornerShape(10.dp))
                     .background(bg)
                     .clickable { onSelect(i) }
-                    .padding(vertical = 9.dp),
+                    .padding(vertical = 9.dp, horizontal = if (scroll) 14.dp else 0.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -656,6 +675,15 @@ private enum class Tab(val icon: ImageVector, val label: String) {
 
 val BarClearance = PaddingValues(bottom = 108.dp)
 
+//widgets can ask the app to open on a tab
+object AppNav {
+    val tab = kotlinx.coroutines.flow.MutableStateFlow(-1)
+    fun take(i: Intent?) {
+        val t = i?.getIntExtra(Widgets.EXTRA_TAB, -1) ?: -1
+        if (t >= 0) { tab.value = t; i?.removeExtra(Widgets.EXTRA_TAB) }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun KanjiApp() {
@@ -666,11 +694,28 @@ fun KanjiApp() {
     val snackbar = remember { SnackbarHostState() }
     val tick by DailyWordManager.changes.collectAsStateWithLifecycle()
     val due = remember(tick) { Study.dueNow(ctx) }
+    val asked by AppNav.tab.collectAsStateWithLifecycle()
+    LaunchedEffect(asked) { if (asked >= 0) { tab = asked; AppNav.tab.value = -1 } }
+
+    //bar slides away when u scroll down and comes back when u scroll up
+    var barShown by remember { mutableStateOf(true) }
+    LaunchedEffect(tab) { barShown = true }
+    val hideOnScroll = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y < -6f) barShown = false else if (available.y > 6f) barShown = true
+                return Offset.Zero
+            }
+        }
+    }
 
     LifecycleResumeEffect(Unit) {
         DailyWordManager.refresh(ctx)
         onPauseOrDispose { }
     }
+
+    var update by remember { mutableStateOf<Updater.Release?>(null) }
+    LaunchedEffect(Unit) { Updater.check(ctx, manual = false).getOrNull()?.let { update = it } }
 
     val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         DailyWordManager.refresh(ctx)
@@ -681,7 +726,7 @@ fun KanjiApp() {
         ) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
-    Box(Modifier.fillMaxSize().background(Ink.background)) {
+    Box(Modifier.fillMaxSize().background(Ink.background).nestedScroll(hideOnScroll)) {
         AnimatedContent(
             targetState = tab,
             transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) },
@@ -702,14 +747,24 @@ fun KanjiApp() {
         )
 
         //hide the bar when keyboard is up or it covers the input
-        if (!WindowInsets.isImeVisible) FloatingBar(
-            selected = tab,
-            studyBadge = due,
-            onSelect = { tab = it },
-            onAdd = { showAdd = true },
-            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 14.dp)
-        )
+        AnimatedVisibility(
+            visible = barShown && !WindowInsets.isImeVisible,
+            enter = slideInVertically(tween(220)) { it } + fadeIn(tween(180)),
+            exit = slideOutVertically(tween(200)) { it } + fadeOut(tween(150)),
+            modifier = Modifier.align(Alignment.BottomCenter)
+        ) {
+            FloatingBar(
+                selected = tab,
+                studyBadge = due,
+                showAdd = tab == Tab.WORDS.ordinal,
+                onSelect = { tab = it },
+                onAdd = { showAdd = true },
+                modifier = Modifier.navigationBarsPadding().padding(bottom = 14.dp)
+            )
+        }
     }
+
+    update?.let { r -> UpdateDialog(r) { update = null } }
 
     if (showAdd) {
         val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -738,6 +793,7 @@ fun KanjiApp() {
 private fun FloatingBar(
     selected: Int,
     studyBadge: Int,
+    showAdd: Boolean,
     onSelect: (Int) -> Unit,
     onAdd: () -> Unit,
     modifier: Modifier = Modifier
@@ -774,14 +830,16 @@ private fun FloatingBar(
                 }
             }
         }
-        Box(
-            Modifier
-                .clip(shape)
-                .background(Ink.BgMid.copy(alpha = 0.92f))
-                .border(1.dp, Ink.GlassStroke, shape)
-                .padding(8.dp)
-        ) {
-            GlassIconButton(Ic.add, "Add word", size = 48.dp, onClick = onAdd)
+        AnimatedVisibility(showAdd, enter = fadeIn() + expandHorizontally(), exit = fadeOut() + shrinkHorizontally()) {
+            Box(
+                Modifier
+                    .clip(shape)
+                    .background(Ink.BgMid.copy(alpha = 0.92f))
+                    .border(1.dp, Ink.GlassStroke, shape)
+                    .padding(8.dp)
+            ) {
+                GlassIconButton(Ic.add, "Add word", size = 48.dp, onClick = onAdd)
+            }
         }
     }
 }
@@ -945,6 +1003,7 @@ object Ic {
         .addPath(PathParser().parsePathString(d).toNodes(), fill = SolidColor(Color.White)).build()
 
     val add by lazy { v("add", "M19,13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z") }
+    val fullscreen by lazy { v("fullscreen", "M7,14H5v5h5v-2H7v-3zM5,10h2V7h3V5H5v5zm12,7h-3v2h5v-5h-2v3zM14,5v2h3v3h2V5h-5z") }
     val book by lazy { v("book", "M18,2H6c-1.1,0 -2,0.9 -2,2v16c0,1.1 0.9,2 2,2h12c1.1,0 2,-0.9 2,-2V4c0,-1.1 -0.9,-2 -2,-2zM6,4h5v8l-2.5,-1.5L6,12V4z") }
     val bookmark by lazy { v("bookmark", "M17,3H7c-1.1,0 -2,0.9 -2,2v16l7,-3 7,3V5c0,-1.1 -0.9,-2 -2,-2z") }
     val calendar by lazy { v("calendar", "M20,3h-1V1h-2v2H7V1H5v2H4c-1.1,0 -2,0.9 -2,2v16c0,1.1 0.9,2 2,2h16c1.1,0 2,-0.9 2,-2V5c0,-1.1 -0.9,-2 -2,-2zM20,21H4V8h16v13z") }
@@ -958,7 +1017,8 @@ object Ic {
     val download by lazy { v("download", "M19,9h-4V3H9v6H5l7,7 7,-7zM5,18v2h14v-2H5z") }
     val expandLess by lazy { v("expandLess", "M12,8l-6,6 1.41,1.41L12,10.83l4.59,4.58L18,14z") }
     val expandMore by lazy { v("expandMore", "M16.59,8.59L12,13.17 7.41,8.59 6,10l6,6 6,-6z") }
-    val flame by lazy { v("flame", "M13.5,0.67s0.74,2.65 0.74,4.8c0,2.06 -1.35,3.73 -3.41,3.73 -2.07,0 -3.63,-1.67 -3.63,-3.73l0.03,-0.36C5.21,7.51 4,10.62 4,14c0,4.42 3.58,8 8,8s8,-3.58 8,-8C20,8.61 17.41,3.8 13.5,0.67zM11.71,19c-1.78,0 -3.22,-1.4 -3.22,-3.14 0,-1.62 1.05,-2.76 2.81,-3.12 1.77,-0.36 3.6,-1.21 4.62,-2.58 0.39,1.29 0.59,2.65 0.59,4.04 0,2.65 -2.15,4.8 -4.8,4.8z") }
+    const val FLAME_PATH = "M13.5,0.67s0.74,2.65 0.74,4.8c0,2.06 -1.35,3.73 -3.41,3.73 -2.07,0 -3.63,-1.67 -3.63,-3.73l0.03,-0.36C5.21,7.51 4,10.62 4,14c0,4.42 3.58,8 8,8s8,-3.58 8,-8C20,8.61 17.41,3.8 13.5,0.67zM11.71,19c-1.78,0 -3.22,-1.4 -3.22,-3.14 0,-1.62 1.05,-2.76 2.81,-3.12 1.77,-0.36 3.6,-1.21 4.62,-2.58 0.39,1.29 0.59,2.65 0.59,4.04 0,2.65 -2.15,4.8 -4.8,4.8z"
+    val flame by lazy { v("flame", FLAME_PATH) }
     val home by lazy { v("home", "M10,20v-6h4v6h5v-8h3L12,3 2,12h3v8z") }
     val lock by lazy { v("lock", "M18,8h-1V6c0,-2.76 -2.24,-5 -5,-5S7,3.24 7,6v2H6c-1.1,0 -2,0.9 -2,2v10c0,1.1 0.9,2 2,2h12c1.1,0 2,-0.9 2,-2V10c0,-1.1 -0.9,-2 -2,-2zM12,17c-1.1,0 -2,-0.9 -2,-2s0.9,-2 2,-2 2,0.9 2,2 -0.9,2 -2,2zM15.1,8H8.9V6c0,-1.71 1.39,-3.1 3.1,-3.1 1.71,0 3.1,1.39 3.1,3.1v2z") }
     val notifications by lazy { v("notifications", "M12,22c1.1,0 2,-0.9 2,-2h-4c0,1.1 0.89,2 2,2zM18,16v-5c0,-3.07 -1.64,-5.64 -4.5,-6.32V4c0,-0.83 -0.67,-1.5 -1.5,-1.5s-1.5,0.67 -1.5,1.5v0.68C7.63,5.36 6,7.92 6,11v5l-2,2v1h16v-1l-2,-2z") }
@@ -1001,5 +1061,75 @@ fun TextDialog(title: String, body: String, onDismiss: () -> Unit) {
             )
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close), color = Ink.Text) } }
+    )
+}
+
+//the popup when a new github release is out
+@Composable
+fun UpdateDialog(r: Updater.Release, onDismiss: () -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var progress by remember { mutableStateOf<Float?>(null) }
+    var apk by remember { mutableStateOf<java.io.File?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var needsPermission by remember { mutableStateOf(false) }
+
+    fun install(f: java.io.File) {
+        if (Updater.canInstall(ctx)) { needsPermission = false; Updater.install(ctx, f) }
+        else { needsPermission = true; Updater.askInstallPermission(ctx) }
+    }
+    fun start() {
+        if (r.apkUrl == null) { error = ctx.getString(R.string.update_no_apk); return }
+        error = null; progress = 0f
+        scope.launch {
+            runCatching { Updater.download(ctx, r) { p -> progress = p } }
+                .onSuccess { apk = it; progress = null; install(it) }
+                .onFailure { progress = null; error = ctx.getString(R.string.update_failed, it.message ?: "") }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (progress == null) onDismiss() },
+        containerColor = Ink.BgMid,
+        title = {
+            Column {
+                Text(stringResource(R.string.update_title), color = Ink.Text)
+                Text(stringResource(R.string.update_version, r.version, Updater.current(ctx)), style = MaterialTheme.typography.labelMedium, color = Ink.Muted)
+            }
+        },
+        text = {
+            Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
+                if (r.notes.isNotBlank()) Text(r.notes, style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+                progress?.let { p ->
+                    Spacer(Modifier.height(14.dp))
+                    LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth(), color = Ink.Good, trackColor = Ink.GlassHigh)
+                    Spacer(Modifier.height(6.dp))
+                    Text(stringResource(R.string.update_downloading, (p * 100).toInt()), style = MaterialTheme.typography.labelMedium, color = Ink.Muted)
+                }
+                if (needsPermission) {
+                    Spacer(Modifier.height(12.dp))
+                    Text(stringResource(R.string.update_allow), style = MaterialTheme.typography.labelMedium, color = Ink.Hard)
+                }
+                error?.let {
+                    Spacer(Modifier.height(12.dp))
+                    Text(it, style = MaterialTheme.typography.labelMedium, color = Ink.Again)
+                    TextButton(onClick = {
+                        ctx.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(r.page)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    }) { Text(stringResource(R.string.update_open_page), color = Ink.Text) }
+                }
+            }
+        },
+        confirmButton = {
+            val f = apk
+            TextButton(enabled = progress == null, onClick = { if (f != null) install(f) else start() }) {
+                Text(stringResource(if (f != null) R.string.update_install else R.string.update_now), color = Ink.Good)
+            }
+        },
+        dismissButton = {
+            if (progress == null) Row {
+                TextButton(onClick = { Prefs.setSkippedTag(ctx, r.tag); onDismiss() }) { Text(stringResource(R.string.update_skip), color = Ink.Muted) }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.update_later), color = Ink.Text) }
+            }
+        }
     )
 }

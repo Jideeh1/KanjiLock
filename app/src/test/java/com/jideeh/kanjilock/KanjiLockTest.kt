@@ -7,6 +7,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -226,5 +227,54 @@ class DictionaryTest {
         val kanji = q.randomKanjiIds(20).mapNotNull { q.word(it) }
         assertEquals(20, kanji.size)
         assertTrue(kanji.all { it.type == "kanji" && it.word.length == 1 })
+    }
+}
+
+class UpdaterAndTypingTest {
+    @Test fun versionCompare() {
+        assertTrue(Updater.newer("v1.1.0", "1.0.0"))
+        assertTrue(Updater.newer("1.10.0", "1.9.2"))
+        assertTrue(Updater.newer("2", "1.9.9"))
+        assertFalse(Updater.newer("v1.0.0", "1.0.0"))
+        assertFalse(Updater.newer("1.0.0", "1.0.1"))
+        assertFalse(Updater.newer("1.1.0-beta", "1.1.0"))
+    }
+
+    //same shape as api.github.com/repos/x/y/releases/latest
+    @Test fun parsesGithubRelease() {
+        val body = File("../docs/release-v1.0.0.md").readText()
+        val json = org.json.JSONObject()
+            .put("tag_name", "v1.0.0").put("draft", false).put("prerelease", false)
+            .put("html_url", "https://github.com/Jideeh1/KanjiLock/releases/tag/v1.0.0")
+            .put("body", body)
+            .put("assets", org.json.JSONArray()
+                .put(org.json.JSONObject().put("name", "notes.txt").put("size", 10).put("browser_download_url", "https://x/notes.txt"))
+                .put(org.json.JSONObject().put("name", "KanjiLock-1.0.0.apk").put("size", 21040110)
+                    .put("browser_download_url", "https://github.com/Jideeh1/KanjiLock/releases/download/v1.0.0/KanjiLock-1.0.0.apk")))
+        val r = Updater.parse(json.toString())!!
+        assertEquals("1.0.0", r.version)
+        assertTrue(r.apkUrl!!.endsWith("KanjiLock-1.0.0.apk"))
+        assertEquals(21040110L, r.apkSize)
+        assertFalse(r.notes.contains("<")); assertFalse(r.notes.contains("![")); assertFalse(r.notes.contains("shields.io"))
+        assertTrue(r.notes.contains("• home screen widget"))
+        assertTrue(r.notes.contains("whats in it"))
+        assertNull(Updater.parse(json.put("draft", true).toString()))
+    }
+
+    @Test fun buzzOnlyWhenItCantBeRight() {
+        val a = listOf("たべる")
+        assertTrue(Romaji.onTrack("ta", a))
+        assertTrue(Romaji.onTrack("tab", a)) //ta plus a b thats still pending
+        assertTrue(Romaji.onTrack("taber", a))
+        assertTrue(Romaji.onTrack("たべ", a))
+        assertFalse(Romaji.onTrack("to", a))
+        assertFalse(Romaji.onTrack("tabu", a))
+        assertTrue(Romaji.onTrack("TABE", listOf("タベル")))
+        assertTrue(Romaji.onTrack("kan", listOf("かんじ")))
+        assertTrue(Romaji.onTrack("matc", listOf("まっちゃ")))
+        assertTrue(Romaji.onTrack("tt", listOf("ちょっと", "ってい")))
+        assertTrue(Romaji.onTrack("to e", listOf("to eat")))
+        assertFalse(Romaji.onTrack("to x", listOf("to eat")))
+        assertTrue(Romaji.onTrack("", a))
     }
 }

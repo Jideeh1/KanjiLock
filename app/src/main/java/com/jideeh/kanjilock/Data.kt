@@ -113,6 +113,24 @@ object Prefs {
         sp(ctx).edit().putString("new_seen_day_$deck", day).putInt("new_seen_count_$deck", n).apply()
     }
 
+    fun unmarkNewSeen(ctx: Context, day: String, deck: String = "accepted") {
+        if (sp(ctx).getString("new_seen_day_$deck", "") != day) return
+        sp(ctx).edit().putInt("new_seen_count_$deck", (newSeenToday(ctx, day, deck) - 1).coerceAtLeast(0)).apply()
+    }
+
+    fun vibrate(ctx: Context): Boolean = sp(ctx).getBoolean("vibrate", true)
+    fun setVibrate(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("vibrate", v).apply()
+
+    fun autoUpdate(ctx: Context): Boolean = sp(ctx).getBoolean("update_auto", true)
+    fun setAutoUpdate(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("update_auto", v).apply()
+    fun updateChecked(ctx: Context): Long = sp(ctx).getLong("update_checked", 0L)
+    fun setUpdateChecked(ctx: Context, t: Long) = sp(ctx).edit().putLong("update_checked", t).apply()
+    fun skippedTag(ctx: Context): String = sp(ctx).getString("update_skip", "") ?: ""
+    fun setSkippedTag(ctx: Context, t: String) = sp(ctx).edit().putString("update_skip", t).apply()
+
+    fun practice(ctx: Context): Boolean = sp(ctx).getBoolean("practice", false)
+    fun setPractice(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("practice", v).apply()
+
     fun selectedDeck(ctx: Context): String = sp(ctx).getString("selected_deck", "accepted") ?: "accepted"
     fun setSelectedDeck(ctx: Context, id: String) = sp(ctx).edit().putString("selected_deck", id).apply()
 
@@ -148,7 +166,7 @@ object Prefs {
     fun exportSettings(ctx: Context): Map<String, Any> = mapOf(
         KEY_WORDS_PER_DAY to wordsPerDay(ctx), KEY_SOURCE to source(ctx), KEY_DISPLAY_MODE to displayMode(ctx),
         KEY_LOCK_NOTIF to lockNotif(ctx), KEY_NOTIF_NUDGE to notifNudge(ctx), "widget_bg" to widgetBg(ctx),
-        "new_per_day" to newPerDay(ctx), "sfx" to sfx(ctx), "daily_goal" to dailyGoal(ctx),
+        "new_per_day" to newPerDay(ctx), "sfx" to sfx(ctx), "vibrate" to vibrate(ctx), "daily_goal" to dailyGoal(ctx),
         "remind_daily" to remindDaily(ctx), "remind_minutes" to remindMinutes(ctx),
         "remind_streak" to remindStreak(ctx), "streak_minutes" to streakMinutes(ctx)
     )
@@ -163,6 +181,7 @@ object Prefs {
         (m["widget_bg"] as? String)?.let { e.putString("widget_bg", it) }
         (m["new_per_day"] as? Number)?.let { e.putInt("new_per_day", it.toInt()) }
         (m["sfx"] as? Boolean)?.let { e.putBoolean("sfx", it) }
+        (m["vibrate"] as? Boolean)?.let { e.putBoolean("vibrate", it) }
         (m["daily_goal"] as? Number)?.let { e.putInt("daily_goal", it.toInt()) }
         (m["remind_daily"] as? Boolean)?.let { e.putBoolean("remind_daily", it) }
         (m["remind_minutes"] as? Number)?.let { e.putInt("remind_minutes", it.toInt()) }
@@ -381,6 +400,7 @@ object ActivityLog {
 
     fun record(ctx: Context, day: String, delta: Int) = bump(ctx, day, delta, 0)
     fun recordReview(ctx: Context, day: String = dayKey()) = bump(ctx, day, 0, 1)
+    fun unrecordReview(ctx: Context, day: String = dayKey()) = bump(ctx, day, 0, -1)
 
     data class Streak(val current: Int, val longest: Int, val todayDone: Boolean, val activeDays: Int)
 
@@ -433,6 +453,14 @@ object RevLog {
         a.put(JSONArray().put(System.currentTimeMillis()).put(grade).put(stateBefore).put(deck))
         val trimmed = if (a.length() > MAX) JSONArray((a.length() - MAX until a.length()).map { a.get(it) }) else a
         file(ctx).writeText(trimmed.toString())
+    }
+
+    fun removeLast(ctx: Context, deck: String) {
+        val a = try { if (file(ctx).exists()) JSONArray(file(ctx).readText()) else JSONArray() } catch (_: Exception) { JSONArray() }
+        for (i in a.length() - 1 downTo 0) {
+            if (a.optJSONArray(i)?.optString(3) == deck) { a.remove(i); break }
+        }
+        file(ctx).writeText(a.toString())
     }
 }
 
@@ -649,6 +677,17 @@ object Romaji {
             if (ch == ' ' || ch == '　' || ch == '・') continue
             append(if (ch in 'ァ'..'ヶ') (ch - 0x60) else ch)
         }
+    }
+
+    //still could become right? used for the buzz when u type something wrong
+    fun onTrack(typed: String, answers: List<String>): Boolean {
+        if (typed.isBlank() || answers.isEmpty()) return true
+        if (!answers.any { hasKana(it) }) return answers.any { it.trim().lowercase().startsWith(typed.trim().lowercase()) }
+        val kana = toHiragana(typed)
+        val head = normalize(kana.trimEnd { it in 'a'..'z' || it in 'A'..'Z' || it == '\'' })
+        val tail = kana.length - kana.trimEnd { it in 'a'..'z' || it in 'A'..'Z' || it == '\'' }.length
+        if (tail > 3) return false
+        return answers.any { normalize(it).startsWith(head) }
     }
 
     fun matches(typed: String, answers: List<String>): Boolean {

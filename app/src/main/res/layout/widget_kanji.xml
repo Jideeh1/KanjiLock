@@ -64,6 +64,22 @@
                     android:textSize="17sp" />
 
                 <TextView
+                    android:id="@+id/tv_prev"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="4dp"
+                    android:background="@drawable/widget_chip"
+                    android:contentDescription="@string/cd_prev"
+                    android:paddingStart="9dp"
+                    android:paddingTop="2dp"
+                    android:paddingEnd="9dp"
+                    android:paddingBottom="2dp"
+                    android:text="‹"
+                    android:textColor="@color/widget_text"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+
+                <TextView
                     android:id="@+id/tv_progress"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"

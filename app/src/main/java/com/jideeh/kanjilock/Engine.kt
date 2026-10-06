@@ -13,20 +13,30 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.Path
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.PathParser
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.AuthorizationResult
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
 import com.jideeh.kanjilock.DailyWordManager.Status
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -172,6 +182,7 @@ object DailyWordManager {
     //update widget notif and the app all at once
     fun refresh(ctx: Context) {
         KanjiWidgetProvider.updateAll(ctx)
+        Widgets.updateAll(ctx)
         LockScreenNotifier.refresh(ctx)
         _changes.value = _changes.value + 1
     }
@@ -241,10 +252,27 @@ object Study {
         return Queue(pick?.first, pick?.second, newLeft, learning.size, review.size, nextDue, cards.size)
     }
 
+    //what we need to take an answer back
+    data class Undo(val deckId: String, val card: DeckCard, val before: SrsCard, val day: String)
+
     fun answer(ctx: Context, deckId: String, card: SrsCard, grade: Grade, now: Long = System.currentTimeMillis()) {
         if (card.state == SrsCard.NEW) Prefs.markNewSeen(ctx, ActivityLog.dayKey(now), deckId)
         SrsStore.put(ctx, Scheduler.answer(card, grade, now))
         logReview(ctx, grade.ordinal + 1, card.state, deckId)
+    }
+
+    fun undo(ctx: Context, u: Undo) {
+        SrsStore.put(ctx, u.before)
+        if (u.before.state == SrsCard.NEW) Prefs.unmarkNewSeen(ctx, u.day, u.deckId)
+        RevLog.removeLast(ctx, u.deckId)
+        ActivityLog.unrecordReview(ctx, u.day)
+        DailyWordManager.refresh(ctx)
+    }
+
+    //practice only needs cards u can type, order is random everytime
+    fun practiceCards(ctx: Context, deck: Deck): List<DeckCard> {
+        val cards = if (deck.isLinked) AnkiDroid.notes(ctx, deck.ankiDeckName) else DeckStore.cards(ctx, deck.id)
+        return cards.filter { it.answers.isNotEmpty() }.shuffled()
     }
 
     fun logReview(ctx: Context, grade: Int, stateBefore: Int, deckId: String) {
@@ -577,6 +605,7 @@ object CardBinder {
         rv.setOnClickPendingIntent(R.id.btn_check, ActionReceiver.pending(ctx, ActionReceiver.ACTION_CHECK, requestBase + 3))
         if (R.id.tv_progress in has) {
             rv.setOnClickPendingIntent(R.id.tv_progress, ActionReceiver.pending(ctx, ActionReceiver.ACTION_NEXT, requestBase + 4))
+            rv.setOnClickPendingIntent(R.id.tv_prev, ActionReceiver.pending(ctx, ActionReceiver.ACTION_PREV, requestBase + 5))
         }
 
         val w = t.word
@@ -597,12 +626,11 @@ object CardBinder {
                 rv.setTextViewText(R.id.tv_example, ex)
             }
             if (R.id.tv_progress in has) {
-                if (t.total > 1) {
-                    rv.setViewVisibility(R.id.tv_progress, View.VISIBLE)
-                    rv.setTextViewText(R.id.tv_progress, "${t.index + 1}/${t.total}  ›")
-                } else {
-                    rv.setViewVisibility(R.id.tv_progress, View.GONE)
-                }
+                //widgets cant do swipes so its ‹ and › chips
+                val many = if (t.total > 1) View.VISIBLE else View.GONE
+                rv.setViewVisibility(R.id.tv_progress, many)
+                rv.setViewVisibility(R.id.tv_prev, many)
+                rv.setTextViewText(R.id.tv_progress, "${t.index + 1}/${t.total}  ›")
             }
 
             setButtonEnabled(rv, R.id.btn_x, t.canReject, if (t.canReject) R.drawable.btn_x else R.drawable.btn_check_done)
@@ -619,7 +647,7 @@ object CardBinder {
             rv.setViewVisibility(R.id.content_group, View.GONE)
             rv.setViewVisibility(R.id.btn_row, View.GONE)
             rv.setViewVisibility(R.id.tv_status, View.VISIBLE)
-            if (R.id.tv_progress in has) rv.setViewVisibility(R.id.tv_progress, View.GONE)
+            if (R.id.tv_progress in has) { rv.setViewVisibility(R.id.tv_progress, View.GONE); rv.setViewVisibility(R.id.tv_prev, View.GONE) }
             rv.setTextViewText(
                 R.id.tv_status,
                 ctx.getString(if (t.status == Status.DISMISSED) R.string.status_dismissed else R.string.status_empty)
@@ -663,6 +691,7 @@ class ActionReceiver : BroadcastReceiver() {
             ACTION_RELOAD -> DailyWordManager.reload(context)
             ACTION_CHECK -> DailyWordManager.check(context)
             ACTION_NEXT -> DailyWordManager.step(context, +1)
+            ACTION_PREV -> DailyWordManager.step(context, -1)
         }
     }
 
@@ -671,6 +700,7 @@ class ActionReceiver : BroadcastReceiver() {
         const val ACTION_RELOAD = "com.jideeh.kanjilock.action.RELOAD"
         const val ACTION_CHECK = "com.jideeh.kanjilock.action.CHECK"
         const val ACTION_NEXT = "com.jideeh.kanjilock.action.NEXT"
+        const val ACTION_PREV = "com.jideeh.kanjilock.action.PREV"
 
         fun pending(ctx: Context, action: String, requestCode: Int): PendingIntent {
             val i = Intent(ctx, ActionReceiver::class.java).setAction(action)
@@ -716,6 +746,32 @@ object AnkiDroid {
         } ?: emptyList()
 
     fun deck(ctx: Context, id: Long): AdDeck? = decks(ctx).firstOrNull { it.id == id }
+
+    //cards of a deck for the words list and practice, read only
+    fun notes(ctx: Context, deckName: String, limit: Int = 3000): List<DeckCard> {
+        val q = "deck:\"" + deckName.replace("\"", "\\\"") + "\""
+        return ctx.contentResolver.query(NOTES, arrayOf("_id", "flds"), q, null, null)?.use { c ->
+            val out = ArrayList<DeckCard>()
+            while (c.moveToNext() && out.size < limit) {
+                val id = c.getLong(0)
+                FieldMapper.map("n$id", emptyList(), c.getString(1).split('\u001f'))?.let { out += it }
+            }
+            out
+        } ?: emptyList()
+    }
+
+    //asks ankidroid to sync with ankiweb, same intent tasker uses
+    //ankidroid only allows this every few minutes and needs u logged in there
+    fun requestSync(ctx: Context): Boolean = runCatching {
+        ctx.startActivity(
+            Intent("com.ichi2.anki.DO_SYNC").setPackage(PACKAGE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    }.isSuccess
+
+    fun open(ctx: Context): Boolean {
+        val i = ctx.packageManager.getLaunchIntentForPackage(PACKAGE) ?: return false
+        ctx.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return true
+    }
 
     fun findByName(ctx: Context, name: String): AdDeck? =
         decks(ctx).firstOrNull { it.name.equals(name, ignoreCase = true) }
@@ -935,5 +991,272 @@ object DriveSync {
     fun unlink(ctx: Context) {
         token = null; folderCache = null
         Prefs.setDriveLinked(ctx, false); Prefs.setDriveState(ctx, ""); Prefs.clearSyncMeta(ctx)
+    }
+}
+
+//little buzz when u type something wrong
+object Haptics {
+    fun wrong(ctx: Context) {
+        if (!Prefs.vibrate(ctx)) return
+        val v = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            (ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION") ctx.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        } ?: return
+        if (!v.hasVibrator()) return
+        runCatching { v.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 35, 60, 35), -1)) }
+    }
+}
+
+class KanjiTileWidget : AppWidgetProvider() {
+    override fun onUpdate(ctx: Context, mgr: AppWidgetManager, ids: IntArray) {
+        DailyWordManager.ensureToday(ctx); Widgets.updateAll(ctx)
+    }
+}
+
+class StreakWidget : AppWidgetProvider() {
+    override fun onUpdate(ctx: Context, mgr: AppWidgetManager, ids: IntArray) = Widgets.updateAll(ctx)
+    override fun onAppWidgetOptionsChanged(ctx: Context, mgr: AppWidgetManager, id: Int, newOptions: Bundle) = Widgets.updateAll(ctx)
+}
+
+class StudyWidget : AppWidgetProvider() {
+    override fun onUpdate(ctx: Context, mgr: AppWidgetManager, ids: IntArray) = Widgets.updateAll(ctx)
+}
+
+// the 3 small widgets, they all get redrawn from DailyWordManager.refresh
+object Widgets {
+    const val EXTRA_TAB = "tab"
+
+    fun updateAll(ctx: Context) {
+        val mgr = AppWidgetManager.getInstance(ctx)
+        fun ids(c: Class<*>) = mgr.getAppWidgetIds(ComponentName(ctx, c))
+        runCatching { ids(KanjiTileWidget::class.java).forEach { mgr.updateAppWidget(it, tile(ctx)) } }
+        runCatching { ids(StreakWidget::class.java).forEach { mgr.updateAppWidget(it, streak(ctx)) } }
+        runCatching { ids(StudyWidget::class.java).forEach { mgr.updateAppWidget(it, study(ctx)) } }
+    }
+
+    private fun base(ctx: Context, layout: Int): RemoteViews {
+        val rv = RemoteViews(ctx.packageName, layout)
+        rv.setInt(
+            R.id.widget_root, "setBackgroundResource",
+            when (Prefs.widgetBg(ctx)) {
+                Prefs.BG_SEMI -> R.drawable.widget_bg_semi
+                Prefs.BG_CLEAR -> R.drawable.widget_bg_clear
+                else -> R.drawable.widget_bg
+            }
+        )
+        return rv
+    }
+
+    private fun open(ctx: Context, tab: Int): PendingIntent {
+        val i = Intent(ctx, MainActivity::class.java).putExtra(EXTRA_TAB, tab)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        return PendingIntent.getActivity(ctx, 40 + tab, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    }
+
+    fun tile(ctx: Context): RemoteViews {
+        val rv = base(ctx, R.layout.widget_tile)
+        val w = DailyWordManager.state(ctx).word
+        rv.setTextViewText(R.id.tv_kanji, w?.word ?: "鍵")
+        rv.setTextViewText(R.id.tv_reading, w?.reading.orEmpty())
+        rv.setViewVisibility(R.id.tv_reading, if (w == null) View.GONE else View.VISIBLE)
+        rv.setOnClickPendingIntent(R.id.widget_root, open(ctx, 0))
+        return rv
+    }
+
+    fun streak(ctx: Context): RemoteViews {
+        val rv = base(ctx, R.layout.widget_streak)
+        val days = ActivityLog.days(ctx)
+        val st = ActivityLog.streak(days.keys)
+        val goal = Prefs.dailyGoal(ctx)
+        val density = ctx.resources.displayMetrics.density
+        rv.setTextViewText(R.id.tv_streak, st.current.toString())
+        rv.setTextViewText(
+            R.id.tv_streak_sub,
+            ctx.getString(if (st.todayDone) R.string.widget_streak_done else R.string.widget_streak_todo, st.longest)
+        )
+        rv.setImageViewBitmap(R.id.iv_flame, FlameArt.single(if (st.current > 0) 1f else 0f, (26 * density).toInt()))
+        rv.setImageViewBitmap(R.id.iv_week, FlameArt.week(days, goal, density))
+        rv.setOnClickPendingIntent(R.id.widget_root, open(ctx, 0))
+        return rv
+    }
+
+    fun study(ctx: Context): RemoteViews {
+        val rv = base(ctx, R.layout.widget_study)
+        val queues = DeckStore.all(ctx).filter { it.source != DeckSource.ANKIDROID }.map { Study.queue(ctx, it.id) }
+        val new = queues.sumOf { it.newLeft }
+        val rev = queues.sumOf { it.learning + it.review }
+        rv.setTextViewText(R.id.tv_due, (new + rev).toString())
+        rv.setTextViewText(
+            R.id.tv_due_label,
+            ctx.getString(if (new + rev == 0) R.string.widget_due_none else R.string.widget_due_label)
+        )
+        rv.setTextViewText(R.id.tv_due_sub, ctx.getString(R.string.widget_due_sub, new, rev))
+        rv.setOnClickPendingIntent(R.id.widget_root, open(ctx, 1))
+        return rv
+    }
+}
+
+//draws the flames for the streak widget since remoteviews cant do the bucket fill
+object FlameArt {
+    private val GRAY = 0x33FFFFFF
+    private val ORANGE = 0xFFFF9A3D.toInt()
+    private val flame: Path by lazy { PathParser.createPathFromPathData(Ic.FLAME_PATH) }
+
+    private fun draw(c: Canvas, x: Float, y: Float, size: Float, fill: Float) {
+        val m = Matrix().apply { setScale(size / 24f, size / 24f); postTranslate(x, y) }
+        val p = Path(flame).apply { transform(m) }
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        paint.color = GRAY; c.drawPath(p, paint)
+        if (fill > 0f) {
+            c.save()
+            val top = y + size * (1f - fill.coerceIn(0f, 1f))
+            c.clipRect(x, top, x + size, y + size)
+            paint.color = ORANGE; c.drawPath(p, paint)
+            c.restore()
+        }
+    }
+
+    fun single(fill: Float, px: Int): Bitmap {
+        val b = Bitmap.createBitmap(px.coerceAtLeast(8), px.coerceAtLeast(8), Bitmap.Config.ARGB_8888)
+        draw(Canvas(b), 0f, 0f, px.toFloat(), fill)
+        return b
+    }
+
+    //last 7 days, today on the right
+    fun week(days: Map<String, ActivityLog.Day>, goal: Int, density: Float): Bitmap {
+        val cell = 36 * density
+        val flame = 24 * density
+        val h = 50 * density
+        val b = Bitmap.createBitmap((cell * 7).toInt(), h.toInt(), Bitmap.Config.ARGB_8888)
+        val c = Canvas(b)
+        val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 10 * density; textAlign = Paint.Align.CENTER }
+        val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -6) }
+        val letters = SimpleDateFormat("EEE", Locale.getDefault())
+        for (i in 0..6) {
+            val d = days[ActivityLog.dayKey(cal)]
+            val fill = if (d == null || d.total == 0) 0f else 0.12f + 0.88f * (d.total.toFloat() / goal.coerceAtLeast(1)).coerceAtMost(1f)
+            val cx = cell * i + cell / 2
+            draw(c, cx - flame / 2, 2 * density, flame, fill)
+            text.color = if (i == 6) 0xFFFFFFFF.toInt() else 0xFFA9BABC.toInt()
+            c.drawText(letters.format(cal.time).take(1).uppercase(), cx, h - 4 * density, text)
+            cal.add(Calendar.DAY_OF_YEAR, 1)
+        }
+        return b
+    }
+}
+
+//checks github releases for a newer apk, only in the github build
+object Updater {
+    const val REPO = "Jideeh1/KanjiLock"
+    private const val API = "https://api.github.com/repos/$REPO/releases/latest"
+    private const val EVERY = 6 * 60 * 60 * 1000L
+
+    data class Release(val tag: String, val version: String, val notes: String, val apkUrl: String?, val apkSize: Long, val page: String)
+
+    val enabled: Boolean get() = BuildConfig.SELF_UPDATE
+
+    fun current(ctx: Context): String =
+        runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull().orEmpty()
+
+    fun parse(json: String): Release? {
+        val o = JSONObject(json)
+        if (o.optBoolean("draft") || o.optBoolean("prerelease")) return null
+        val tag = o.optString("tag_name").ifBlank { return null }
+        val assets = o.optJSONArray("assets") ?: JSONArray()
+        var url: String? = null; var size = 0L
+        for (i in 0 until assets.length()) {
+            val a = assets.getJSONObject(i)
+            if (a.optString("name").endsWith(".apk", ignoreCase = true)) {
+                url = a.optString("browser_download_url"); size = a.optLong("size"); break
+            }
+        }
+        return Release(tag, tag.trimStart('v', 'V'), cleanNotes(o.optString("body")), url, size, o.optString("html_url"))
+    }
+
+    //1.10.0 beats 1.9.2, anything after a dash is ignored
+    fun newer(candidate: String, installed: String): Boolean {
+        fun parts(v: String) = v.trimStart('v', 'V').substringBefore('-').split('.').map { it.filter(Char::isDigit).toIntOrNull() ?: 0 }
+        val a = parts(candidate); val b = parts(installed)
+        for (i in 0 until maxOf(a.size, b.size)) {
+            val x = a.getOrElse(i) { 0 }; val y = b.getOrElse(i) { 0 }
+            if (x != y) return x > y
+        }
+        return false
+    }
+
+    //release notes are markdown with banners and badges, keep only the readable bits
+    fun cleanNotes(body: String): String = body.replace("\r", "").lines()
+        .map { it.trim() }
+        .filterNot { it.startsWith("<") || it.startsWith("![") || it.startsWith("> [!") || it == "---" }
+        .map { l ->
+            l.replace(Regex("<[^>]+>"), "").replace(Regex("!\\[[^\\]]*]\\([^)]*\\)"), "")
+                .replace(Regex("\\[([^\\]]+)]\\([^)]*\\)"), "$1")
+                .replace(Regex("^#+\\s*"), "").replace(Regex("^[-*]\\s+"), "• ").replace(Regex("^>\\s*"), "")
+                .replace("**", "").replace("`", "")
+        }
+        .joinToString("\n").replace(Regex("\n{3,}"), "\n\n").trim()
+
+    fun fetch(url: String = API): String {
+        val c = URL(url).openConnection() as HttpURLConnection
+        c.setRequestProperty("Accept", "application/vnd.github+json")
+        c.setRequestProperty("User-Agent", "KanjiLock-updater")
+        c.connectTimeout = 10_000; c.readTimeout = 15_000
+        if (c.responseCode != 200) error("GitHub ${c.responseCode}")
+        return c.inputStream.bufferedReader().use { it.readText() }
+    }
+
+    //null when theres nothing new, auto checks run at most every 6 hours and skip a version the user said no to
+    suspend fun check(ctx: Context, manual: Boolean): Result<Release?> = withContext(Dispatchers.IO) {
+        if (!enabled) return@withContext Result.success(null)
+        if (!manual && (!Prefs.autoUpdate(ctx) || System.currentTimeMillis() - Prefs.updateChecked(ctx) < EVERY)) {
+            return@withContext Result.success(null)
+        }
+        runCatching {
+            val r = parse(fetch())
+            Prefs.setUpdateChecked(ctx, System.currentTimeMillis())
+            r?.takeIf { newer(it.version, current(ctx)) && (manual || it.tag != Prefs.skippedTag(ctx)) }
+        }
+    }
+
+    suspend fun download(ctx: Context, r: Release, progress: (Float) -> Unit): File = withContext(Dispatchers.IO) {
+        val dir = File(ctx.cacheDir, "updates").apply { mkdirs() }
+        dir.listFiles()?.forEach { it.delete() }
+        val out = File(dir, "KanjiLock-${r.version}.apk")
+        val c = URL(r.apkUrl ?: error("no apk in this release")).openConnection() as HttpURLConnection
+        c.setRequestProperty("User-Agent", "KanjiLock-updater")
+        c.instanceFollowRedirects = true
+        c.connectTimeout = 15_000; c.readTimeout = 30_000
+        if (c.responseCode != 200) error("download ${c.responseCode}")
+        val total = c.contentLengthLong.takeIf { it > 0 } ?: r.apkSize
+        c.inputStream.use { input ->
+            out.outputStream().use { o ->
+                val buf = ByteArray(64 * 1024); var done = 0L
+                while (true) {
+                    val n = input.read(buf); if (n < 0) break
+                    o.write(buf, 0, n); done += n
+                    if (total > 0) progress((done.toFloat() / total).coerceIn(0f, 1f))
+                }
+            }
+        }
+        out
+    }
+
+    //android asks the user once to alow installs from this app
+    fun canInstall(ctx: Context): Boolean = ctx.packageManager.canRequestPackageInstalls()
+
+    fun askInstallPermission(ctx: Context) {
+        ctx.startActivity(
+            Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${ctx.packageName}"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    }
+
+    fun install(ctx: Context, apk: File) {
+        val uri = androidx.core.content.FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", apk)
+        ctx.startActivity(
+            Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
     }
 }

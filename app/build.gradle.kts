@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -11,8 +13,20 @@ android {
         applicationId = "com.jideeh.kanjilock"
         minSdk = 26
         targetSdk = 37
-        versionCode = 6
-        versionName = "4.2"
+        versionCode = 7
+        versionName = "1.1.0"
+    }
+
+    //put ur own key in keystore.properties (never commit it), otherwise release uses the debug key
+    val keys = rootProject.file("keystore.properties")
+    if (keys.exists()) {
+        val p = Properties().apply { keys.inputStream().use { load(it) } }
+        signingConfigs.create("release") {
+            storeFile = rootProject.file(p.getProperty("storeFile"))
+            storePassword = p.getProperty("storePassword")
+            keyAlias = p.getProperty("keyAlias")
+            keyPassword = p.getProperty("keyPassword")
+        }
     }
 
     buildTypes {
@@ -20,7 +34,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("debug") //debug key for now, make a real upload key before play store
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 
@@ -29,8 +43,23 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    //github builds can update themselves from releases, play builds cant (play policy)
+    flavorDimensions += "store"
+    productFlavors {
+        create("github") {
+            dimension = "store"
+            isDefault = true
+            buildConfigField("boolean", "SELF_UPDATE", "true")
+        }
+        create("play") {
+            dimension = "store"
+            buildConfigField("boolean", "SELF_UPDATE", "false")
+        }
+    }
+
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
