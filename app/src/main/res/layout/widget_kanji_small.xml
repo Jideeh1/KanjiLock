@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:clipToOutline="true"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <LinearLayout
+        android:id="@+id/content_group"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/tv_kanji"
+            android:shadowColor="#73000000"
+            android:shadowDy="1"
+            android:shadowRadius="6"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="10dp"
+            android:fontFamily="serif"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:text="山"
+            android:textColor="@color/widget_text"
+            android:textLocale="ja-JP"
+            android:textSize="40sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_reading"
+                android:shadowColor="#73000000"
+                android:shadowDy="1"
+                android:shadowRadius="6"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="やま"
+                android:textColor="@color/widget_accent"
+                android:textLocale="ja-JP"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tv_meaning"
+                android:shadowColor="#73000000"
+                android:shadowDy="1"
+                android:shadowRadius="6"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:text="mountain"
+                android:textColor="@color/widget_text"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_progress"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:background="@drawable/widget_chip"
+                android:paddingStart="8dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="2dp"
+                android:text="1/3  ›"
+                android:textColor="@color/widget_text"
+                android:textSize="11sp"
+                android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tv_status"
+        android:shadowColor="#73000000"
+        android:shadowDy="1"
+        android:shadowRadius="6"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="@string/status_dismissed"
+        android:textColor="@color/widget_text_secondary"
+        android:textSize="13sp"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/btn_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <ImageButton
+            android:id="@+id/btn_x"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:background="@drawable/btn_x"
+            android:contentDescription="@string/cd_reject"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_close" />
+
+        <ImageButton
+            android:id="@+id/btn_reload"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_marginStart="14dp"
+            android:layout_marginEnd="14dp"
+            android:background="@drawable/btn_reload"
+            android:contentDescription="@string/cd_reload"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_refresh" />
+
+        <ImageButton
+            android:id="@+id/btn_check"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:background="@drawable/btn_check"
+            android:contentDescription="@string/cd_check"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_check" />
+    </LinearLayout>
+</LinearLayout>

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal">
+
+    <LinearLayout
+        android:id="@+id/content_group"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/tv_kanji"
+            style="@style/TextAppearance.Compat.Notification.Title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="10dp"
+            android:fontFamily="serif"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:text="山"
+            android:textLocale="ja-JP"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_reading"
+                style="@style/TextAppearance.Compat.Notification.Info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="1"
+                android:text="やま"
+                android:textLocale="ja-JP" />
+
+            <TextView
+                android:id="@+id/tv_meaning"
+                style="@style/TextAppearance.Compat.Notification.Title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="mountain"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tv_status"
+        style="@style/TextAppearance.Compat.Notification.Info"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/btn_row"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageButton
+            android:id="@+id/btn_x"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="@drawable/btn_x"
+            android:contentDescription="@string/cd_reject"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_close" />
+
+        <ImageButton
+            android:id="@+id/btn_reload"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/btn_reload"
+            android:contentDescription="@string/cd_reload"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_refresh" />
+
+        <ImageButton
+            android:id="@+id/btn_check"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="@drawable/btn_check"
+            android:contentDescription="@string/cd_check"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_check" />
+    </LinearLayout>
+</LinearLayout>

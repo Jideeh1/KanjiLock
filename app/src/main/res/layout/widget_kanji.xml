@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:clipToOutline="true"
+    android:gravity="center_vertical"
+    android:orientation="vertical"
+    android:paddingStart="18dp"
+    android:paddingTop="14dp"
+    android:paddingEnd="18dp"
+    android:paddingBottom="14dp">
+
+    <LinearLayout
+        android:id="@+id/content_group"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/tv_kanji"
+            android:shadowColor="#73000000"
+            android:shadowDy="1"
+            android:shadowRadius="6"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:fontFamily="serif"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:text="山"
+            android:textColor="@color/widget_text"
+            android:textLocale="ja-JP"
+            android:textSize="52sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/tv_reading"
+                    android:shadowColor="#73000000"
+                    android:shadowDy="1"
+                    android:shadowRadius="6"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:text="やま"
+                    android:textColor="@color/widget_accent"
+                    android:textLocale="ja-JP"
+                    android:textSize="17sp" />
+
+                <TextView
+                    android:id="@+id/tv_progress"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/widget_chip"
+                    android:paddingStart="10dp"
+                    android:paddingTop="3dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="3dp"
+                    android:text="1/3  ›"
+                    android:textColor="@color/widget_text"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tv_meaning"
+                android:shadowColor="#73000000"
+                android:shadowDy="1"
+                android:shadowRadius="6"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:text="mountain"
+                android:textColor="@color/widget_text"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_example"
+                android:shadowColor="#73000000"
+                android:shadowDy="1"
+                android:shadowRadius="6"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="富士山  ・  Mt. Fuji"
+                android:textColor="@color/widget_text_secondary"
+                android:textLocale="ja-JP"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tv_status"
+        android:shadowColor="#73000000"
+        android:shadowDy="1"
+        android:shadowRadius="6"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
+        android:text="@string/status_dismissed"
+        android:textColor="@color/widget_text_secondary"
+        android:textSize="15sp"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/btn_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <ImageButton
+            android:id="@+id/btn_x"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/btn_x"
+            android:contentDescription="@string/cd_reject"
+            android:padding="11dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_close" />
+
+        <ImageButton
+            android:id="@+id/btn_reload"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginStart="28dp"
+            android:layout_marginEnd="28dp"
+            android:background="@drawable/btn_reload"
+            android:contentDescription="@string/cd_reload"
+            android:padding="11dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_refresh" />
+
+        <ImageButton
+            android:id="@+id/btn_check"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/btn_check"
+            android:contentDescription="@string/cd_check"
+            android:padding="11dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_check" />
+    </LinearLayout>
+</LinearLayout>

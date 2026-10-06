@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="btn_red">#E0605A</color>
+    <color name="btn_gray">#56696C</color>
+    <color name="btn_green">#3FA877</color>
+    <color name="btn_disabled">#3A4A4D</color>
+
+    <color name="widget_bg">#F21C2A2D</color>
+    <color name="widget_bg_semi">#8C1C2A2D</color>
+    <color name="widget_chip">#26FFFFFF</color>
+    <color name="widget_text">#FFFFFF</color>
+    <color name="widget_text_secondary">#A9BABC</color>
+    <color name="widget_accent">#CFE3E2</color>
+
+    <color name="window_bg">#152224</color>
+    <color name="ic_launcher_background">#16262A</color>
+</resources>
