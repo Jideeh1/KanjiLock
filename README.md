@@ -142,8 +142,22 @@ do this before each release, the edrdg licence wants the data kept up to date
 
 ## credits
 
-dictionary data from [JMdict and KANJIDIC2](https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project) by the EDRDG (CC BY-SA 4.0), example sentences from [Tatoeba](https://tatoeba.org) (CC BY 2.0 FR), font is [Inter](https://github.com/rsms/inter) (OFL). full list in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+| | source | license |
+|---|---|---|
+| words | [JMdict](https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project) by the EDRDG | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) |
+| kanji | [KANJIDIC2](https://www.edrdg.org/wiki/index.php/KANJIDIC_Project) by the EDRDG | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) |
+| sentences | [Tatoeba](https://tatoeba.org) | [CC BY 2.0 FR](https://creativecommons.org/licenses/by/2.0/fr/) |
+| json data | [jmdict-simplified](https://github.com/scriptin/jmdict-simplified) | CC BY-SA 4.0 |
+| font | [Inter](https://github.com/rsms/inter) | [OFL 1.1](https://openfontlicense.org) |
 
-code is [MIT](LICENSE) · [privacy policy](PRIVACY_POLICY.md)
+the dictionary was condensed into a small sqlite db for the app, it stays under CC BY-SA. everything else is in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+
+<br>
+
+<div align="center">
+
+[MIT license](LICENSE) · [privacy policy](PRIVACY_POLICY.md) · [third party notices](THIRD_PARTY_NOTICES.md)
 
 <sub>not affiliated with Anki, AnkiDroid, Kotoba, Google or Samsung</sub>
+
+</div>
