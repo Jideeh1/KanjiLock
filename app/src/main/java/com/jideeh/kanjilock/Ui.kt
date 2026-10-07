@@ -255,6 +255,16 @@ object Palettes {
     )
     val Ocean = Palette("ocean", "Ocean", Color(0xFF07161F), Color(0xFF0B2230), Color(0xFF12425A), Color(0xFFEAF6FB), Color(0xFF8FB1C2), Color(0xFF5A7C8C), flame = Color(0xFFFFA45C))
     val Ember = Palette("ember", "Ember", Color(0xFF1A0F0B), Color(0xFF26150F), Color(0xFF52291A), Color(0xFFFBEFE8), Color(0xFFC0A091), Color(0xFF86695C), flame = Color(0xFFFFB347))
+    //yellow ones. honey is dark with yellow buttons, lemon is the bright one
+    val Honey = Palette(
+        "honey", "Honey", Color(0xFF1A1508), Color(0xFF241C0A), Color(0xFF4A3A10), Color(0xFFFBF5E3), Color(0xFFC2B38A), Color(0xFF8A7D59),
+        pill = Color(0xFFF5C518), onPill = Color(0xFF241C0A), flame = Color(0xFFFFC233)
+    )
+    val Lemon = Palette(
+        "lemon", "Lemon", Color(0xFFFFFBEA), Color(0xFFFFF4C7), Color(0xFFF5E08A), Color(0xFF2A2410), Color(0xFF6B6136), Color(0xFF9A8F5E),
+        light = true, pill = Color(0xFF2A2410), onPill = Color(0xFFFFF8DC),
+        again = Color(0xFFC94A44), hard = Color(0xFFB07A1E), good = Color(0xFF2E8A5F), easy = Color(0xFF3F7DB8), flame = Color(0xFFE08A00)
+    )
     val Lavender = Palette("lavender", "Lavender", Color(0xFF15111F), Color(0xFF1D1730), Color(0xFF3A2D5A), Color(0xFFF3EFFB), Color(0xFFA99EC4), Color(0xFF746A8E))
     val Void = Palette("void", "Void", Color(0xFF000000), Color(0xFF000000), Color(0xFF0A0A0A), Color(0xFFF5F5F5), Color(0xFF9A9A9A), Color(0xFF5E5E5E))
     val Snow = Palette(
@@ -262,7 +272,7 @@ object Palettes {
         light = true, pill = Color(0xFF1B2430), onPill = Color(0xFFF7F9FB),
         again = Color(0xFFC94A44), hard = Color(0xFFB07A1E), good = Color(0xFF2E8A5F), easy = Color(0xFF3F7DB8), flame = Color(0xFFE5791F)
     )
-    val all = listOf(Teal, Midnight, Sakura, Matcha, Sumi, Ocean, Ember, Lavender, Void, Washi, Snow)
+    val all = listOf(Teal, Midnight, Sakura, Matcha, Sumi, Ocean, Ember, Honey, Lavender, Void, Washi, Lemon, Snow)
     fun byId(id: String) = all.firstOrNull { it.id == id } ?: Teal
 }
 
