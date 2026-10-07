@@ -13,6 +13,12 @@ one japanese word a day, right on your home screen
 
 <br>
 
+<a href="docs/website2.mp4"><img src="docs/website2.jpg" width="100%" alt="KanjiLock in 20 seconds, click to watch"></a>
+
+<sub>20 sec look at the app, click to watch</sub>
+
+<br><br>
+
 <img src="docs/screens.png" width="100%" alt="Today, Study, Dictionary and Progress screens">
 
 </div>
