@@ -1,0 +1,232 @@
+KanjiLock comments
+file, line, comment
+
+app/src/main/java/com/jideeh/kanjilock/Data.kt
+  line 37: //pos for words, on kun stuff for kanji
+  line 39: //other readings that also count as correct
+  line 40: // tatoeba sentence id, blank if none
+  line 129: //which game practice mode plays, reading is what practice used to be
+  line 139: //how much u need to do for the flame to be full
+  line 164: //only the settings that go in backups
+  line 285: //json is the real data, csv just gets rebuilt everytime so deleting stuff actualy removes the row
+  line 298: //accepting today counts for todays flame
+  line 308: //undo takes the credit back otherwise u could spam accept undo lol
+  line 358: //per day counts, a is accepted r is reviews
+  line 359: //old versions saved just a number so thats handled too
+  line 368: //SimpleDateFormat isnt thread safe and milestones run in the background
+  line 407: //streak dont die untill the day is over, same as duolingo
+  line 436: //tiny review log for the insights card
+  line 470: //state 0 new 1 learning 2 review 3 relearning
+  line 471: //interval in days, due in ms
+  line 490: // basically anki sm2 defaults. steps 1m 10m, graduate 1d, easy 4d
+  line 507: //the little times under the buttons
+  line 605: //works like a jp keyboard, double consonant gives small tsu and nn gives ん
+  line 641: //final false means user is still typing so keep the last n as n
+  line 653: //matcha
+  line 674: //katakana to hiragana so both count
+  line 682: //still could become right? used for the buzz when u type something wrong
+  line 699: //anki fields are full of html, this cleans it
+  line 718: //漢字[かんじ] becomes 漢字
+  line 729: //all the sql for dict.db, no android stuff here so tests can hit the real db
+  line 730: // ids are j + jmdict id for words and k + the kanji itself
+  line 742: //common only and no kana only words, nothing to read on those
+  line 758: //exact match first then common then shorter ones
+  line 854: //copies dict.db out of the apk on first run
+  line 868: //gradle unzips the .gz on build for some reason so check both names
+  line 879: //do this early on a bg thread so the widget isnt slow the first time
+  line 891: // follows the show and draw from settings, skips stuff already accepted or rejected
+  line 913: //about 1 kanji per 3 words feels right
+  line 928: //shows as the tag on the deck
+  line 946: //set after linking, then reviews go thru ankidroid
+  line 953: //empty answers means just flip it no typing
+  line 964: //accepted deck isnt a real file, its just ur accepted words
+  line 1087: //kotoba csv, comma or tab both work
+  line 1141: //guesses which anki field is the reading and which is the meaning. not perfect
+  line 1179: //so the parser works on android and in the jvm tests
+  line 1186: //handles anki21b anki21 and the old anki2
+  line 1199: // newer anki zips it with zstd
+  line 1218: //anki uses a unicase collation normal sqlite dosent have so some tables wont open
+  line 1219: //swap it for nocase, same lenght so nothing in the file moves
+  line 1273: //the other way around, so the jvm tests can write a real database too
+  line 1284: //writes a real .apkg (the old anki2 kind, every anki version can open it)
+  line 1285: //note type has kanji reading meaning example and u type the reading on the front
+  line 1289: //fixed ids so importing again updates the same deck instead of making a copy
+  line 1346: //anki checks dupes with the first 8 hex of sha1 of the first field
+  line 1406: //one big json of everything, used for the backup file and drive
+  line 1459: //both phones changed stuff so just union it, local settings win
+
+app/src/main/java/com/jideeh/kanjilock/Engine.kt
+  line 72: //check adds to accepted, word stays and button goes gray
+  line 73: //x puts it in rejected then shows the next one
+  line 74: //reload just gives another word
+  line 87: //no point rejecting if its already in a list
+  line 117: //ids from an old version or a deleted mined word, just pick new ones
+  line 163: // for the snackbar undo
+  line 172: //change words per day without reshuffling whats already there
+  line 195: //update widgets and the app all at once
+  line 218: //review queue for local decks
+  line 267: //what we need to take an answer back
+  line 284: //practice only needs cards u can type, order is random everytime
+  line 292: //listen needs something to say out loud
+  line 297: //meaning and reverse need a front and a meaning on every card
+  line 301: //the right one plus 3 others that dont look the same, shuffled
+  line 318: //ankidroid decks not counted here, ankidroid does that
+  line 362: //runs around midnight to change the word
+  line 363: //inexact alarm so no exact alarm permision needed
+  line 406: //study one only if cards are due, streak one only if u did nothing today
+  line 430: //10 min window is fine for a reminder
+  line 485: //the lock screen card is gone, this just wipes the old one off phones that had it
+  line 496: //the big word card widget, home screen only
+  line 569: //all the layouts use the same ids so one function binds all of them
+  line 608: //widgets cant do swipes so its ‹ and › chips
+  line 691: //talks to ankidroid thru its content provider
+  line 692: //ankiweb has no api so this is the only way, ankidroid syncs it after
+  line 726: //cards of a deck for the words list and practice, read only
+  line 739: //asks ankidroid to sync with ankiweb, same intent tasker uses
+  line 740: //ankidroid only allows this every few minutes and needs u logged in there
+  line 791: //ease 1 again 2 hard 3 good 4 easy
+  line 805: //one file in the users drive, pull on open and push on close
+  line 821: //null if the user has to approve again
+  line 864: //if only one side changed take that one, if both changed merge
+  line 892: //new install with nothing in it, just take drives copy
+  line 942: //HttpURLConnection dosent do PATCH
+  line 958: // deletes the whole folder not just the file
+  line 973: //little buzz when u type something wrong
+  line 977: //little double tap when an achievement pops
+  line 1007: // the 3 small widgets, they all get redrawn from DailyWordManager.refresh
+  line 1025: //dark is for light wallpapers, same 3 styles just a lot darker behind the text
+  line 1090: //draws the flames for the streak widget since remoteviews cant do the bucket fill
+  line 1100: //shadow so the flames still show on clear widgets over light wallpapers
+  line 1119: //last 7 days, today on the right
+  line 1145: //checks github releases for a newer apk, only in the github build
+  line 1173: //1.10.0 beats 1.9.2, anything after a dash is ignored
+  line 1184: //release notes are markdown with banners and badges, keep only the readable bits
+  line 1205: //null when theres nothing new, auto checks run at most every 6 hours and skip a version the user said no to
+  line 1241: //android asks the user once to alow installs from this app
+  line 1260: //what u did in the game modes, totals and best runs in a row
+  line 1274: //one right answer on the first try, combo is how many in a row it is now
+  line 1277: //finished a round of 20+ without missing once
+  line 1289: //steam style achievements, they pop up at the top when u get one
+  line 1297: //old ids from 2.0 betas stay the same so nothing earned gets lost
+  line 1324: //days that got one, the calendar puts a star on them
+  line 1328: //the popups waiting to show, the app takes them one by one
+  line 1371: //returns the ones that just got unlocked
+  line 1384: //check in the background and line up popups for anything new
+  line 1395: //draw to search, the japanese model downloads from google once and then it all runs on the phone
+  line 1429: //if the app crashes the error gets saved, next time it opens it shows it so u can copy it and send it
+  line 1453: //plain android dialog on purpose, if the crash is in the compose stuff this still works
+
+app/src/main/java/com/jideeh/kanjilock/Screens.kt
+  line 308: //swipe left right to go thru todays words
+  line 500: //home screen widgets only, lock screen widgets kept breaking on some phones
+  line 569: //explain first before the permision popup
+  line 634: //practice never touches ur deck or anki, the game modes live inside it
+  line 783: //ankiweb only lets official anki apps log in so everything goes thru ankidroid
+  line 869: //all 4 widgets, android only lets us ask for one at a time
+  line 908: //only ankiweb decks get a tag, the rest dont need one
+  line 947: //recount after every answer or the tile keeps showing the old new card number
+  line 1039: //puts the last answer back and shows that card again
+  line 1125: // ankidroid has no undo in its api so the previous card is look only
+  line 1173: //type the reading, right answer jumps to the next one, nothing gets scheduled
+  line 1174: //listen is the same thing but u only get the sound until its revealed
+  line 1284: //pick 1 of 4, meaning shows the word and reverse shows the meaning
+  line 1299: //need 4 different answers or theres nothing to pick from
+  line 1304: //same seed so going back shows the same 4
+  line 1399: //after picking, right one goes green and the wrong pick goes red
+  line 1426: //big speaker button, the word only shows up after u answer
+  line 1455: //typing state for one card, the normal card, focus mode and practice all use this
+  line 1487: //the input box, buzzes the moment what u typed cant be right anymore
+  line 1517: //flipping readOnly restarts the keyboard, so when it has to stay open the field just ignores input instead
+  line 1587: //if the answer is kana, romaji gets turned to kana while u type
+  line 1603: //keeps the card above the keyboard
+  line 1628: //once the answer opens up, scroll so the buttons under it arent hidden behind the nav bar
+  line 1687: //focus mode, the card sits in the middle of a dark screen
+  line 1688: //buttons go above the kanji, the input under it, and tapping buttons never closes the keyboard
+  line 1729: //the dark backdrop and the top row, every focus screen sits inside this
+  line 1810: //everything about how ur doing, opened from the chart icon on the study tab
+  line 1898: //achievements by category, the game mode ones fill up as u play them
+  line 1913: //one row per category, tap the header to see the rest
+  line 1917: //closed it shows what ur working on next, plus the latest one u got if theres room
+  line 1962: //little bar so u can see how close u are
+  line 2052: //0 accepted 1 decks 2 rejected 3 mined 4 dictionary
+  line 2186: //cards from imported decks, ankidroid ones get read live from ankidroid
+  line 2425: //cc by needs credit so every sentence links back to its page
+  line 2794: //little previews of each theme, tap one and the whole app switches
+  line 2827: //update checker in settings, same popup as the one on launch
+  line 3025: //write a kanji with ur finger, tap what it guessed and it goes in the search box
+  line 3051: //otherwise drawing down drags the sheet away
+  line 3081: //guesses, biggest chance first
+  line 3131: //faint cross so its easier to keep the kanji centered
+
+app/src/main/java/com/jideeh/kanjilock/Ui.kt
+  line 183: //some phones throw on alarms (like samsung when theres too many), dont let that kill the app
+  line 191: //status bar icons have to flip for the light theme
+  line 210: // drive pull
+  line 215: //push if anything changed
+  line 221: //colors from the teal glass reference
+  line 244: //all the themes, teal is the original one
+  line 269: //colors from the teal glass reference, now they follow whatever theme is picked
+  line 380: //ja locale so kanji use the japanese shapes not chinese ones
+  line 396: //the see thru card thats used everywhere
+  line 541: //where each pill sits so the picked one can slide into view
+  line 549: //fade the words out at the edges when theres more to scroll to
+  line 581: //no clip here or it cuts the feather off
+  line 585: //very soft highlight, the edges fade out instead of a hard white block
+  line 608: //u can type the middle number too
+  line 653: // font gets smaller for long words
+  line 773: //gray flame that fills orange from the bottom like a bucket, depends on how much u did
+  line 821: //makes a flame look alive, it sways and stretches a bit from the bottom
+  line 844: //widgets can ask the app to open on a tab
+  line 864: //back goes to the tab u came from instead of closing the app
+  line 873: //bar slides away when u scroll down and comes back when u scroll up
+  line 925: //blur behind the bar, feathered so theres no line at the top. stuff under it just melts away
+  line 937: //real blur needs android 12, older phones just get the soft shade
+  line 951: //hide the bar when keyboard is up or it covers the input
+  line 1053: //furigana HAS to be kana no romaji
+  line 1063: //tab seperated with anki headers so it imports straight in
+  line 1069: //a real anki package, opens in anki desktop and ankidroid
+  line 1098: //listen mode asks before the voice is loaded
+  line 1146: //word reading meaning, then the example stuff is optional
+  line 1190: //sounds for again hard good easy
+  line 1225: //icons as code instead of 25 xml files
+  line 1269: //makes urls clickable in the license text
+  line 1297: //the popup when a new github release is out
+  line 1425: //whats on screen right now, null when nothing. more is for the "and 5 more" one
+  line 1429: //focus mode is its own window so it shows them there instead
+  line 1432: //goes thru the queue one at a time, if a bunch unlock together it shows 2 and then sums up the rest
+  line 1436: //keyed on Unit on purpose, it used to restart when the queue emptied and that killed it before it could hide the popup
+  line 1445: //a sound failing shouldnt take the popup down with it
+  line 1453: //if this gets cancelled the popup still goes away
+  line 1458: //the steps of the popup, each one goes 0 to 1
+  line 1460: //blur behind it
+  line 1461: //the little circle in the middle
+  line 1462: //circle stretching into the pill
+  line 1465: //big circle on the left
+  line 1466: //trophy inside it
+  line 1470: //circle pops in the middle, stretches out, text drops in, then the badge and the trophy pop
+  line 1473: //springs take too long to settle here
+  line 1485: //same thing backwards but quick
+  line 1509: //blur at the top so the popup reads over anything, fades out going down
+  line 1535: //goes a bit past then back
+  line 1537: //pill with a big circle hanging off the left and a trophy in it. all the floats are the animation steps
+  line 1557: //starts as a circle in the middle then stretches both ways
+  line 1580: //sits a bit in from the left so the pill peeks out behind it
+
+app/build.gradle.kts
+  line 20: //put ur own key in keystore.properties (never commit it), otherwise release uses the debug key
+  line 38: //phones are all arm, the x86 libs are just for emulators and double the size of the handwriting lib
+  line 48: //github builds can update themselves from releases, play builds cant (play policy)
+
+app/src/test/java/com/jideeh/kanjilock/KanjiLockTest.kt
+  line 180: //unzips the real db once into tmp
+  line 243: //same shape as api.github.com/repos/x/y/releases/latest
+  line 267: //ta plus a b thats still pending
+  line 305: //copy to open in real anki if u wanna check by hand
+  line 318: //same as anki, first 8 hex of the sha1 as a number
+  line 335: //same seed same order so going back looks the same
+  line 346: //every kind has a name for each tier
+
+app/proguard-rules.pro
+  line 1: #keep everything, widget n zstd break without it
+  line 6: #ml kit and workmanager make these by name when the app starts, r8 was stripping the constructors so release crashed on open
+  line 11: #handwriting (ml kit) talks to native code and reads its model list with gson, keep all of it whole so draw to search doesnt break in release

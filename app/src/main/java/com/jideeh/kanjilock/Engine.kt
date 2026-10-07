@@ -510,13 +510,11 @@ class KanjiWidgetProvider : AppWidgetProvider() {
     }
 
     companion object {
-        //runs on every app open, a widget that fails to build shouldnt take the whole app down
-        fun updateAll(ctx: Context) = runCatching {
+        fun updateAll(ctx: Context) {
             val mgr = AppWidgetManager.getInstance(ctx)
             val ids = mgr.getAppWidgetIds(ComponentName(ctx, KanjiWidgetProvider::class.java))
-            for (id in ids) runCatching { mgr.updateAppWidget(id, build(ctx, mgr, id)) }
-                .onFailure { android.util.Log.e("KanjiLock", "widget $id failed", it) }
-        }.let { }
+            for (id in ids) mgr.updateAppWidget(id, build(ctx, mgr, id))
+        }
 
         fun requestPin(ctx: Context): Boolean {
             val mgr = AppWidgetManager.getInstance(ctx)
@@ -1452,63 +1450,13 @@ object CrashLog {
         append(android.util.Log.getStackTraceString(e))
     }
 
-    //reads and deletes the saved crash, null if there isnt one
-    fun take(ctx: Context): String? {
-        val f = file(ctx)
-        if (!f.exists()) return null
-        val text = runCatching { f.readText() }.getOrDefault("")
-        f.delete()
-        return text.takeIf { it.isNotBlank() }
-    }
-
-    //plain views only, no compose, no dictionary, no widgets. so it shows even if those are whats crashing
-    //tap "open app" to try a normal start again
-    fun showScreen(act: Activity, text: String) {
-        val d = act.resources.displayMetrics.density
-        fun px(v: Int) = (v * d).toInt()
-        val tv = android.widget.TextView(act).apply {
-            this.text = text
-            textSize = 11f
-            typeface = android.graphics.Typeface.MONOSPACE
-            setTextColor(0xFFEDF3F3.toInt())
-            setTextIsSelectable(true)
-        }
-        fun btn(label: String, onClick: () -> Unit) = android.widget.Button(act).apply {
-            this.text = label
-            setOnClickListener { onClick() }
-        }
-        val buttons = android.widget.LinearLayout(act).apply {
-            orientation = android.widget.LinearLayout.HORIZONTAL
-            addView(btn(act.getString(R.string.crash_copy)) {
-                val cm = act.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                cm.setPrimaryClip(android.content.ClipData.newPlainText("KanjiLock crash", text))
-                android.widget.Toast.makeText(act, R.string.crash_copied, android.widget.Toast.LENGTH_SHORT).show()
-            })
-            addView(btn(act.getString(R.string.crash_share)) {
-                val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text) }
-                act.startActivity(Intent.createChooser(send, "KanjiLock crash"))
-            })
-            addView(btn("Open app") { act.recreate() })
-        }
-        val title = android.widget.TextView(act).apply {
-            setText(R.string.crash_title)
-            textSize = 18f
-            setTextColor(0xFFFFFFFF.toInt())
-        }
-        val col = android.widget.LinearLayout(act).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            setBackgroundColor(0xFF111D20.toInt())
-            setPadding(px(16), px(48), px(16), px(48))
-            addView(title)
-            addView(buttons)
-            addView(android.widget.ScrollView(act).apply { addView(tv) })
-        }
-        act.setContentView(col)
-    }
-
     //plain android dialog on purpose, if the crash is in the compose stuff this still works
     fun showIfAny(act: Activity) {
-        val text = take(act) ?: return
+        val f = file(act)
+        if (!f.exists()) return
+        val text = runCatching { f.readText() }.getOrDefault("")
+        f.delete()
+        if (text.isBlank()) return
         val d = act.resources.displayMetrics.density
         val tv = android.widget.TextView(act).apply {
             this.text = text

@@ -2,7 +2,6 @@
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_tile_description"
     android:initialLayout="@layout/widget_tile"
-    android:initialKeyguardLayout="@layout/widget_tile"
     android:previewLayout="@layout/widget_tile"
     android:minWidth="40dp"
     android:minHeight="40dp"
@@ -12,4 +11,4 @@
     android:targetCellHeight="1"
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="0"
-    android:widgetCategory="home_screen|keyguard" />
+    android:widgetCategory="home_screen" />

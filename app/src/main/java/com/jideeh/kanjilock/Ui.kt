@@ -107,6 +107,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.coroutineScope
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -178,9 +179,6 @@ class MainActivity : ComponentActivity() {
         CrashLog.install(applicationContext)
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        //if the last launch crashed show it FIRST, before anything that could crash again
-        //(it used to be at the end of onCreate so a startup crash was never seen)
-        CrashLog.take(this)?.let { CrashLog.showScreen(this, it); return }
         Thread { Dictionary.warmUp(applicationContext) }.start()
         //some phones throw on alarms (like samsung when theres too many), dont let that kill the app
         runCatching { DailyResetReceiver.schedule(this) }
@@ -201,6 +199,7 @@ class MainActivity : ComponentActivity() {
             }
             KanjiTheme { KanjiApp() }
         }
+        CrashLog.showIfAny(this)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -1434,19 +1433,24 @@ object Popups {
 @Composable
 fun AchievementQueue() {
     val ctx = LocalContext.current
-    val queued by Achievements.queue.collectAsStateWithLifecycle()
-    LaunchedEffect(queued.isNotEmpty()) {
-        while (Achievements.queue.value.isNotEmpty()) {
-            val batch = generateSequence { Achievements.take() }.toList()
-            val shows = if (batch.size > 3) batch.take(2).map { Popup(it) } + Popup(null, batch.size - 2) else batch.map { Popup(it) }
-            for (p in shows) {
-                Popups.showing = p
-                Sfx.achievement(ctx)
-                Haptics.tick(ctx)
-                delay(4300)
-                Popups.showing = null
-                delay(650)
+    //keyed on Unit on purpose, it used to restart when the queue emptied and that killed it before it could hide the popup
+    LaunchedEffect(Unit) {
+        try {
+            while (true) {
+                Achievements.queue.first { it.isNotEmpty() }
+                val batch = generateSequence { Achievements.take() }.toList()
+                val shows = if (batch.size > 3) batch.take(2).map { Popup(it) } + Popup(null, batch.size - 2) else batch.map { Popup(it) }
+                for (p in shows) {
+                    Popups.showing = p
+                    runCatching { Sfx.achievement(ctx) } //a sound failing shouldnt take the popup down with it
+                    runCatching { Haptics.tick(ctx) }
+                    delay(4300)
+                    Popups.showing = null
+                    delay(650)
+                }
             }
+        } finally {
+            Popups.showing = null //if this gets cancelled the popup still goes away
         }
     }
 }
