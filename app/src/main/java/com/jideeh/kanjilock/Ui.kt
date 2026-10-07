@@ -175,12 +175,17 @@ import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        CrashLog.install(applicationContext)
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        //if the last launch crashed show it FIRST, before anything that could crash again
+        //(it used to be at the end of onCreate so a startup crash was never seen)
+        CrashLog.take(this)?.let { CrashLog.showScreen(this, it); return }
         Thread { Dictionary.warmUp(applicationContext) }.start()
-        DailyResetReceiver.schedule(this)
-        Reminders.scheduleAll(this)
-        LockScreenNotifier.ensureChannel(this)
+        //some phones throw on alarms (like samsung when theres too many), dont let that kill the app
+        runCatching { DailyResetReceiver.schedule(this) }
+        runCatching { Reminders.scheduleAll(this) }
+        LockScreenNotifier.clear(this)
         DailyWordManager.ensureToday(this)
         AppNav.take(intent)
         Ink.palette = Palettes.byId(Prefs.theme(this))

@@ -4,7 +4,7 @@
 
 # KanjiLock
 
-one japanese word a day, right on your lock screen
+one japanese word a day, right on your home screen
 
 ![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-Compose-7F52FF?style=flat-square&logo=kotlin&logoColor=white)
@@ -23,7 +23,7 @@ one japanese word a day, right on your lock screen
 
 you get a kanji or word every day with the reading in kana, the meaning and an example sentence. keep it, toss it or reroll it. the ones you keep turn into a deck you study with spaced repetition
 
-made it cuz i kept forgeting to study and i look at my lock screen like 200 times a day anyway
+made it cuz i kept forgeting to study and i look at my phone like 200 times a day anyway
 
 <br>
 
@@ -31,7 +31,7 @@ made it cuz i kept forgeting to study and i look at my lock screen like 200 time
 <tr>
 <td width="55%" valign="middle">
 
-<b>daily word</b> · home and lock screen widget<br><br>
+<b>daily word</b> · on your home screen every day<br><br>
 <b>study</b> · anki style reviews, practice mode with 4 games, focus mode<br><br>
 <b>decks</b> · anki, kotoba and ankidroid in, .apkg out<br><br>
 <b>progress</b> · streaks, flame calendar, stats, achievements<br><br>
@@ -69,16 +69,6 @@ the apk from releases checks github when it opens and asks before updating, u ca
 <br>
 
 ## more
-
-<details>
-<summary><b>lock screen setup</b></summary>
-<br>
-
-- **samsung**: install Good Lock from the galaxy store, open LockStar and add the KanjiLock widget
-- **pixel and others on android 16 qpr2+**: lock screen widgets are built in, add it from there
-- everyone else gets the lock screen notification
-
-</details>
 
 <details>
 <summary><b>google drive sync</b></summary>
@@ -119,7 +109,7 @@ kept on purpose to a few files so new features go into whats already there
 ```
 app/src/main/java/com/jideeh/kanjilock/
   Data.kt      words, storage, srs, romaji, dictionary, imports, backup
-  Engine.kt    daily word, study queue, alarms, widget, notification, ankidroid, drive
+  Engine.kt    daily word, study queue, alarms, widgets, reminders, ankidroid, drive
   Ui.kt        activity, theme, shared components, icons
   Screens.kt   today, study, words, settings
 tools/build_dict.py   builds the dictionary database

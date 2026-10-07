@@ -192,11 +192,10 @@ object DailyWordManager {
         refresh(ctx)
     }
 
-    //update widget notif and the app all at once
+    //update widgets and the app all at once
     fun refresh(ctx: Context) {
         KanjiWidgetProvider.updateAll(ctx)
         Widgets.updateAll(ctx)
-        LockScreenNotifier.refresh(ctx)
         _changes.value = _changes.value + 1
     }
 
@@ -483,69 +482,18 @@ class ReminderReceiver : BroadcastReceiver() {
     }
 }
 
+//the lock screen card is gone, this just wipes the old one off phones that had it
 object LockScreenNotifier {
     private const val CHANNEL_ID = "kanji_lockscreen"
     private const val NOTIF_ID = 1001
 
-    fun ensureChannel(ctx: Context) {
-        val ch = NotificationChannel(
-            CHANNEL_ID, ctx.getString(R.string.channel_name), NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = ctx.getString(R.string.channel_desc)
-            setShowBadge(false)
-            lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
-        }
-        ctx.getSystemService(NotificationManager::class.java).createNotificationChannel(ch)
-    }
-
-    fun refresh(ctx: Context) {
-        ensureChannel(ctx)
-        val nm = NotificationManagerCompat.from(ctx)
-        if (!Prefs.lockNotif(ctx)) { nm.cancel(NOTIF_ID); return }
-
-        val status = DailyWordManager.state(ctx).status
-        if (status != Status.ACTIVE) { nm.cancel(NOTIF_ID); return }
-
-        val collapsed = RemoteViews(ctx.packageName, R.layout.notification_kanji_collapsed)
-        CardBinder.bind(ctx, collapsed, R.layout.notification_kanji_collapsed, 300)
-
-        val expanded = RemoteViews(ctx.packageName, R.layout.notification_kanji)
-        CardBinder.bind(ctx, expanded, R.layout.notification_kanji, 400)
-        val nudgePx = (Prefs.notifNudge(ctx) * ctx.resources.displayMetrics.density).toInt()
-        expanded.setViewPadding(R.id.btn_row, 0, 0, nudgePx, 0) //see DEFAULT_NUDGE_DP
-
-        val notif = NotificationCompat.Builder(ctx, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_kanji)
-            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
-            .setCustomContentView(collapsed)
-            .setCustomBigContentView(expanded)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setSilent(true)
-            .setShowWhen(false)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setContentIntent(openApp(ctx))
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
-
-        try {
-            nm.notify(NOTIF_ID, notif)
-        } catch (_: SecurityException) {
-        }
-    }
-
-    fun cancel(ctx: Context) = NotificationManagerCompat.from(ctx).cancel(NOTIF_ID)
-
-    private fun openApp(ctx: Context): PendingIntent {
-        val i = Intent(ctx, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        return PendingIntent.getActivity(
-            ctx, 2, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+    fun clear(ctx: Context) {
+        runCatching { NotificationManagerCompat.from(ctx).cancel(NOTIF_ID) }
+        runCatching { ctx.getSystemService(NotificationManager::class.java).deleteNotificationChannel(CHANNEL_ID) }
     }
 }
 
-// same widget works on the lockscreen if the phone lets u, good lock on samsung or android 16 qpr2
+//the big word card widget, home screen only
 class KanjiWidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(ctx: Context, mgr: AppWidgetManager, ids: IntArray) {
@@ -562,11 +510,13 @@ class KanjiWidgetProvider : AppWidgetProvider() {
     }
 
     companion object {
-        fun updateAll(ctx: Context) {
+        //runs on every app open, a widget that fails to build shouldnt take the whole app down
+        fun updateAll(ctx: Context) = runCatching {
             val mgr = AppWidgetManager.getInstance(ctx)
             val ids = mgr.getAppWidgetIds(ComponentName(ctx, KanjiWidgetProvider::class.java))
-            for (id in ids) mgr.updateAppWidget(id, build(ctx, mgr, id))
-        }
+            for (id in ids) runCatching { mgr.updateAppWidget(id, build(ctx, mgr, id)) }
+                .onFailure { android.util.Log.e("KanjiLock", "widget $id failed", it) }
+        }.let { }
 
         fun requestPin(ctx: Context): Boolean {
             val mgr = AppWidgetManager.getInstance(ctx)
@@ -696,7 +646,6 @@ object CardBinder {
         val base = when (layoutId) {
             R.layout.widget_kanji -> 52f
             R.layout.widget_kanji_small -> 40f
-            R.layout.notification_kanji -> 44f
             else -> 26f
         }
         return when {
@@ -710,8 +659,6 @@ object CardBinder {
     private val optionalIds: Map<Int, Set<Int>> = mapOf(
         R.layout.widget_kanji to setOf(R.id.tv_example, R.id.tv_progress),
         R.layout.widget_kanji_small to setOf(R.id.tv_progress),
-        R.layout.notification_kanji to setOf(R.id.tv_example, R.id.tv_progress),
-        R.layout.notification_kanji_collapsed to emptySet()
     )
 }
 
@@ -1478,4 +1425,114 @@ object Handwriting {
     }
 
     fun close() { recognizer?.close(); recognizer = null }
+}
+
+
+//if the app crashes the error gets saved, next time it opens it shows it so u can copy it and send it
+object CrashLog {
+    private fun file(ctx: Context) = File(ctx.filesDir, "last_crash.txt")
+    private var installed = false
+
+    fun install(ctx: Context) {
+        if (installed) return
+        installed = true
+        val app = ctx.applicationContext
+        val before = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            runCatching { file(app).writeText(report(app, t, e)) }
+            before?.uncaughtException(t, e)
+        }
+    }
+
+    fun report(ctx: Context, t: Thread, e: Throwable): String = buildString {
+        append("KanjiLock ").append(Updater.current(ctx)).append(" (").append(BuildConfig.FLAVOR).append(")\n")
+        append("Android ").append(Build.VERSION.RELEASE).append(" / API ").append(Build.VERSION.SDK_INT).append("\n")
+        append(Build.MANUFACTURER).append(' ').append(Build.MODEL).append("\n")
+        append(SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())).append(" on thread ").append(t.name).append("\n\n")
+        append(android.util.Log.getStackTraceString(e))
+    }
+
+    //reads and deletes the saved crash, null if there isnt one
+    fun take(ctx: Context): String? {
+        val f = file(ctx)
+        if (!f.exists()) return null
+        val text = runCatching { f.readText() }.getOrDefault("")
+        f.delete()
+        return text.takeIf { it.isNotBlank() }
+    }
+
+    //plain views only, no compose, no dictionary, no widgets. so it shows even if those are whats crashing
+    //tap "open app" to try a normal start again
+    fun showScreen(act: Activity, text: String) {
+        val d = act.resources.displayMetrics.density
+        fun px(v: Int) = (v * d).toInt()
+        val tv = android.widget.TextView(act).apply {
+            this.text = text
+            textSize = 11f
+            typeface = android.graphics.Typeface.MONOSPACE
+            setTextColor(0xFFEDF3F3.toInt())
+            setTextIsSelectable(true)
+        }
+        fun btn(label: String, onClick: () -> Unit) = android.widget.Button(act).apply {
+            this.text = label
+            setOnClickListener { onClick() }
+        }
+        val buttons = android.widget.LinearLayout(act).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            addView(btn(act.getString(R.string.crash_copy)) {
+                val cm = act.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("KanjiLock crash", text))
+                android.widget.Toast.makeText(act, R.string.crash_copied, android.widget.Toast.LENGTH_SHORT).show()
+            })
+            addView(btn(act.getString(R.string.crash_share)) {
+                val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text) }
+                act.startActivity(Intent.createChooser(send, "KanjiLock crash"))
+            })
+            addView(btn("Open app") { act.recreate() })
+        }
+        val title = android.widget.TextView(act).apply {
+            setText(R.string.crash_title)
+            textSize = 18f
+            setTextColor(0xFFFFFFFF.toInt())
+        }
+        val col = android.widget.LinearLayout(act).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setBackgroundColor(0xFF111D20.toInt())
+            setPadding(px(16), px(48), px(16), px(48))
+            addView(title)
+            addView(buttons)
+            addView(android.widget.ScrollView(act).apply { addView(tv) })
+        }
+        act.setContentView(col)
+    }
+
+    //plain android dialog on purpose, if the crash is in the compose stuff this still works
+    fun showIfAny(act: Activity) {
+        val text = take(act) ?: return
+        val d = act.resources.displayMetrics.density
+        val tv = android.widget.TextView(act).apply {
+            this.text = text
+            textSize = 11f
+            typeface = android.graphics.Typeface.MONOSPACE
+            setTextIsSelectable(true)
+            setPadding((20 * d).toInt(), (8 * d).toInt(), (20 * d).toInt(), (8 * d).toInt())
+        }
+        val scroll = android.widget.ScrollView(act).apply { addView(tv) }
+        runCatching {
+            android.app.AlertDialog.Builder(act)
+                .setTitle(R.string.crash_title)
+                .setView(scroll)
+                .setPositiveButton(R.string.crash_copy) { _, _ ->
+                    val cm = act.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("KanjiLock crash", text))
+                    android.widget.Toast.makeText(act, R.string.crash_copied, android.widget.Toast.LENGTH_SHORT).show()
+                }
+                .setNeutralButton(R.string.crash_share) { _, _ ->
+                    val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text) }
+                    act.startActivity(Intent.createChooser(send, "KanjiLock crash"))
+                }
+                .setNegativeButton(R.string.crash_close, null)
+                .show()
+        }
+    }
 }

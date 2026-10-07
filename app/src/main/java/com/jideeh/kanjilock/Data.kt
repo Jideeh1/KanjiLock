@@ -4,7 +4,6 @@ import android.content.Context
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.net.Uri
-import android.os.Build
 import android.provider.OpenableColumns
 import com.github.luben.zstd.ZstdInputStream
 import java.io.ByteArrayInputStream
@@ -59,8 +58,6 @@ object Prefs {
     private const val KEY_WORDS_PER_DAY = "words_per_day"
     private const val KEY_SOURCE = "source"
     private const val KEY_DISPLAY_MODE = "display_mode"
-    private const val KEY_LOCK_NOTIF = "lock_notif"
-    private const val KEY_NOTIF_NUDGE = "notif_nudge_dp"
 
     private const val KEY_DAY = "state_day"
     private const val KEY_TODAY_IDS = "state_today_ids"
@@ -76,10 +73,6 @@ object Prefs {
 
     const val MAX_WORDS_PER_DAY = 10
 
-    //android 12+ puts like a 72dp gap on the left for the icon but only 16 on the right
-    //so the buttons look off center, this pushes them back
-    val DEFAULT_NUDGE_DP: Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) 56 else 0
-
     private fun sp(ctx: Context) = ctx.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
     fun wordsPerDay(ctx: Context): Int = sp(ctx).getInt(KEY_WORDS_PER_DAY, 1).coerceIn(1, MAX_WORDS_PER_DAY)
@@ -92,11 +85,7 @@ object Prefs {
     fun displayMode(ctx: Context): String = sp(ctx).getString(KEY_DISPLAY_MODE, MODE_BOTH) ?: MODE_BOTH
     fun setDisplayMode(ctx: Context, v: String) = sp(ctx).edit().putString(KEY_DISPLAY_MODE, v).apply()
 
-    fun lockNotif(ctx: Context): Boolean = sp(ctx).getBoolean(KEY_LOCK_NOTIF, true)
-    fun setLockNotif(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean(KEY_LOCK_NOTIF, v).apply()
 
-    fun notifNudge(ctx: Context): Int = sp(ctx).getInt(KEY_NOTIF_NUDGE, DEFAULT_NUDGE_DP)
-    fun setNotifNudge(ctx: Context, dp: Int) = sp(ctx).edit().putInt(KEY_NOTIF_NUDGE, dp.coerceIn(0, 96)).apply()
 
     const val BG_SOLID = "SOLID"
     const val BG_SEMI = "SEMI"
@@ -175,7 +164,7 @@ object Prefs {
     //only the settings that go in backups
     fun exportSettings(ctx: Context): Map<String, Any> = mapOf(
         KEY_WORDS_PER_DAY to wordsPerDay(ctx), KEY_SOURCE to source(ctx), KEY_DISPLAY_MODE to displayMode(ctx),
-        KEY_LOCK_NOTIF to lockNotif(ctx), KEY_NOTIF_NUDGE to notifNudge(ctx), "widget_bg" to widgetBg(ctx),
+        "widget_bg" to widgetBg(ctx),
         "new_per_day" to newPerDay(ctx), "sfx" to sfx(ctx), "vibrate" to vibrate(ctx), "theme" to theme(ctx), "widget_dark" to widgetDark(ctx), "daily_goal" to dailyGoal(ctx),
         "remind_daily" to remindDaily(ctx), "remind_minutes" to remindMinutes(ctx),
         "remind_streak" to remindStreak(ctx), "streak_minutes" to streakMinutes(ctx)
@@ -186,8 +175,6 @@ object Prefs {
         (m[KEY_WORDS_PER_DAY] as? Number)?.let { e.putInt(KEY_WORDS_PER_DAY, it.toInt()) }
         (m[KEY_SOURCE] as? String)?.let { e.putString(KEY_SOURCE, it) }
         (m[KEY_DISPLAY_MODE] as? String)?.let { e.putString(KEY_DISPLAY_MODE, it) }
-        (m[KEY_LOCK_NOTIF] as? Boolean)?.let { e.putBoolean(KEY_LOCK_NOTIF, it) }
-        (m[KEY_NOTIF_NUDGE] as? Number)?.let { e.putInt(KEY_NOTIF_NUDGE, it.toInt()) }
         (m["widget_bg"] as? String)?.let { e.putString("widget_bg", it) }
         (m["new_per_day"] as? Number)?.let { e.putInt("new_per_day", it.toInt()) }
         (m["sfx"] as? Boolean)?.let { e.putBoolean("sfx", it) }

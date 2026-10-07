@@ -7,8 +7,6 @@
     <string name="app_name">&app;</string>
 
     <!--widget n notif-->
-    <string name="channel_name">Word of the day</string>
-    <string name="channel_desc">Shows today\'s word on your lock screen</string>
     <string name="widget_description">Today\'s kanji with reading, meaning and quick actions</string>
     <string name="status_dismissed">Cleared for today · back at midnight</string>
     <string name="status_empty">No words available</string>
@@ -48,24 +46,12 @@
     <string name="snack_rejected">%1$s moved to Rejected</string>
     <string name="snack_accepted">Added to your deck</string>
     <string name="undo">Undo</string>
-    <string name="notif_off_title">Notifications are off</string>
-    <string name="notif_off_body">The lock-screen card needs notification permission.</string>
     <string name="open_settings">Open settings</string>
-
-    <string name="lock_card_title">Put it on your lock screen</string>
-    <string name="lock_card_body">Add the home-screen widget first. On Samsung and Android 16+ phones the same widget can then go on your lock screen.</string>
-    <string name="lock_card_body_has_widget">Widget added. On Samsung and Android 16+ phones you can place it on your lock screen too.</string>
     <string name="add_widget">Add widget</string>
     <string name="add_another_widget">Add another</string>
     <string name="show_steps">How?</string>
     <string name="hide_steps">Hide</string>
     <string name="pin_unsupported">Your launcher can\'t add widgets from apps. Long-press your home screen → Widgets → &app;.</string>
-    <string name="steps_samsung_title">Samsung Galaxy (One UI)</string>
-    <string name="steps_samsung_body">Install Good Lock from the Galaxy Store, open the LockStar module, turn it on, tap the lock-screen preview, then tap a spot → Add widget → &app;.</string>
-    <string name="steps_android16_title">Android 16 QPR1 and newer (e.g. Pixel)</string>
-    <string name="steps_android16_body">Open the lock-screen widget area (from your lock-screen settings or by swiping while docked/charging), tap Edit/+, and add &app;.</string>
-    <string name="steps_other_title">Any other phone</string>
-    <string name="steps_other_body">Keep the lock-screen notification on in Settings. It shows the same card and buttons on your lock screen.</string>
 
     <!--lists-->
     <string name="lists_title">Your words</string>
@@ -123,11 +109,7 @@
     <string name="source_dict">Dictionary</string>
     <string name="source_mined">Mined</string>
     <string name="source_both">Both</string>
-    <string name="section_lock">Lock screen</string>
-    <string name="lock_notif_label">Lock-screen notification</string>
-    <string name="lock_notif_hint">Shows the card with X / reload / check on your lock screen</string>
-    <string name="nudge_title">Center the notification buttons</string>
-    <string name="nudge_sub">Offset %1$d dp · adjust if they look off-center on your phone</string>
+    <string name="section_widgets">Widgets</string>
     <string name="reset">Reset</string>
     <string name="add_widget_sub">Pin the &app; widget to your home screen</string>
     <string name="section_data">Data</string>
@@ -481,4 +463,12 @@
     <string name="export_apkg_short">Opens in Anki and AnkiDroid</string>
     <string name="export_apkg_sub">Your kept words as a ready deck, you type the reading on each card</string>
     <string name="export_apkg_failed">Couldn\'t make the deck file.</string>
+    <string name="crash_title">KanjiLock crashed last time</string>
+    <string name="crash_copy">Copy</string>
+    <string name="crash_share">Share</string>
+    <string name="crash_close">Close</string>
+    <string name="crash_copied">Copied, paste it to whoever is fixing it</string>
+    <string name="widget_card_title">Widgets</string>
+    <string name="widget_card_body">Put the word card, a kanji tile, your streak or cards due on your home screen.</string>
+    <string name="widget_card_body_has">Widget added. You can add the others too.</string>
 </resources>

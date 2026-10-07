@@ -102,8 +102,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -116,7 +114,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -150,12 +147,10 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.app.NotificationManagerCompat
 import com.jideeh.kanjilock.DailyWordManager.Status
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -233,21 +228,7 @@ fun TodayScreen(tick: Int, snackbar: SnackbarHostState, onStudy: () -> Unit) {
 
             ReviewCard(due, hasCards, onStudy)
 
-            if (Prefs.lockNotif(ctx) && !NotificationManagerCompat.from(ctx).areNotificationsEnabled()) {
-                GlassCard(Modifier.fillMaxWidth()) {
-                    CardTitle(Ic.notifications, stringResource(R.string.notif_off_title))
-                    Spacer(Modifier.height(6.dp))
-                    Text(stringResource(R.string.notif_off_body), style = MaterialTheme.typography.bodyMedium, color = Ink.Muted)
-                    Spacer(Modifier.height(14.dp))
-                    WhitePill(stringResource(R.string.open_settings)) {
-                        ctx.startActivity(
-                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)
-                        )
-                    }
-                }
-            }
-
-            LockScreenCard(tick)
+            WidgetCard(tick)
         }
     }
 }
@@ -516,45 +497,28 @@ internal fun ReviewCard(due: Int, hasCards: Boolean, onStudy: () -> Unit) {
     }
 }
 
+//home screen widgets only, lock screen widgets kept breaking on some phones
 @Composable
-private fun LockScreenCard(tick: Int) {
+private fun WidgetCard(tick: Int) {
     val ctx = LocalContext.current
-    var expanded by rememberSaveable { mutableStateOf(false) }
     var picker by remember { mutableStateOf(false) }
     val hasWidget = remember(tick) { KanjiWidgetProvider.hasWidgets(ctx) }
     GlassCard(Modifier.fillMaxWidth()) {
-        CardTitle(Ic.lock, stringResource(R.string.lock_card_title))
+        CardTitle(Ic.widgets, stringResource(R.string.widget_card_title))
         Spacer(Modifier.height(6.dp))
         Text(
-            stringResource(if (hasWidget) R.string.lock_card_body_has_widget else R.string.lock_card_body),
+            stringResource(if (hasWidget) R.string.widget_card_body_has else R.string.widget_card_body),
             style = MaterialTheme.typography.bodyMedium, color = Ink.Muted
         )
         Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            WhitePill(
-                stringResource(if (hasWidget) R.string.add_another_widget else R.string.add_widget),
-                icon = Ic.widgets
-            ) { picker = true }
-            GhostPill(stringResource(if (expanded) R.string.hide_steps else R.string.show_steps)) { expanded = !expanded }
-        }
+        WhitePill(
+            stringResource(if (hasWidget) R.string.add_another_widget else R.string.add_widget),
+            icon = Ic.widgets
+        ) { picker = true }
         if (picker) WidgetPickerDialog { picker = false }
-        AnimatedVisibility(expanded, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-            Column(Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Step(stringResource(R.string.steps_samsung_title), stringResource(R.string.steps_samsung_body))
-                Step(stringResource(R.string.steps_android16_title), stringResource(R.string.steps_android16_body))
-                Step(stringResource(R.string.steps_other_title), stringResource(R.string.steps_other_body))
-            }
-        }
     }
 }
 
-@Composable
-private fun Step(title: String, body: String) {
-    Column(Modifier.clickable(enabled = false) {}) {
-        Text(title, style = MaterialTheme.typography.titleSmall, color = Ink.Text)
-        Text(body, style = MaterialTheme.typography.bodyMedium, color = Ink.Muted)
-    }
-}
 
 
 fun sourceColor(s: DeckSource) = when (s) {
@@ -2519,8 +2483,6 @@ fun SettingsScreen(tick: Int, snackbar: SnackbarHostState) {
     var mode by remember { mutableStateOf(Prefs.displayMode(ctx)) }
     var source by remember { mutableStateOf(Prefs.source(ctx)) }
     var widgetBg by remember { mutableStateOf(Prefs.widgetBg(ctx)) }
-    var lockNotif by remember { mutableStateOf(Prefs.lockNotif(ctx)) }
-    var nudge by remember { mutableFloatStateOf(Prefs.notifNudge(ctx).toFloat()) }
     var confirm by remember { mutableStateOf<String?>(null) }
     var goal by remember { mutableIntStateOf(Prefs.dailyGoal(ctx)) }
     var sfx by remember { mutableStateOf(Prefs.sfx(ctx)) }
@@ -2547,7 +2509,7 @@ fun SettingsScreen(tick: Int, snackbar: SnackbarHostState) {
             val ok = Backup.restore(ctx, uri)
             if (ok) {
                 perDay = Prefs.wordsPerDay(ctx); newPerDay = Prefs.newPerDay(ctx); mode = Prefs.displayMode(ctx)
-                source = Prefs.source(ctx); widgetBg = Prefs.widgetBg(ctx); lockNotif = Prefs.lockNotif(ctx)
+                source = Prefs.source(ctx); widgetBg = Prefs.widgetBg(ctx)
                 DailyWordManager.reselectToday(ctx)
             }
             toast(ok, R.string.restore_done, R.string.restore_failed)
@@ -2610,7 +2572,7 @@ fun SettingsScreen(tick: Int, snackbar: SnackbarHostState) {
 
             Section(stringResource(R.string.section_theme)) { ThemePicker() }
 
-            Section(stringResource(R.string.section_lock)) {
+            Section(stringResource(R.string.section_widgets)) {
                 Choice(
                     stringResource(R.string.widget_bg_label),
                     listOf(Prefs.BG_SOLID to R.string.bg_solid, Prefs.BG_SEMI to R.string.bg_semi, Prefs.BG_CLEAR to R.string.bg_clear),
@@ -2619,35 +2581,6 @@ fun SettingsScreen(tick: Int, snackbar: SnackbarHostState) {
                 Divider()
                 ToggleRow(stringResource(R.string.widget_dark_title), stringResource(R.string.widget_dark_sub), widgetDark) {
                     widgetDark = it; Prefs.setWidgetDark(ctx, it); DailyWordManager.refresh(ctx)
-                }
-                Divider()
-                ToggleRow(stringResource(R.string.lock_notif_label), stringResource(R.string.lock_notif_hint), lockNotif) {
-                    lockNotif = it; Prefs.setLockNotif(ctx, it)
-                    if (!it) LockScreenNotifier.cancel(ctx)
-                    DailyWordManager.refresh(ctx)
-                }
-                if (lockNotif && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    Divider()
-                    Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(stringResource(R.string.nudge_title), style = MaterialTheme.typography.titleMedium, color = Ink.Text)
-                                Text(stringResource(R.string.nudge_sub, nudge.roundToInt()), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
-                            }
-                            TextButton(onClick = {
-                                nudge = Prefs.DEFAULT_NUDGE_DP.toFloat(); Prefs.setNotifNudge(ctx, Prefs.DEFAULT_NUDGE_DP); LockScreenNotifier.refresh(ctx)
-                            }) { Text(stringResource(R.string.reset), color = Ink.Text) }
-                        }
-                        Slider(
-                            value = nudge, onValueChange = { nudge = it },
-                            onValueChangeFinished = { Prefs.setNotifNudge(ctx, nudge.roundToInt()); LockScreenNotifier.refresh(ctx) },
-                            valueRange = 0f..96f, steps = 23,
-                            colors = SliderDefaults.colors(
-                                thumbColor = Ink.Pill, activeTrackColor = Ink.Pill, inactiveTrackColor = Ink.GlassHigh,
-                                activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent
-                            )
-                        )
-                    }
                 }
                 Divider()
                 LinkRow(Ic.widgets, stringResource(R.string.add_widget), stringResource(R.string.add_widget_sub)) { widgetPicker = true }
