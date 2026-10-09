@@ -27,6 +27,9 @@ android {
             keyAlias = p.getProperty("keyAlias")
             keyPassword = p.getProperty("keyPassword")
         }
+    } else {
+        //no key = release gets signed with whatever debug key this pc has, n phones refuse it as an update. thats how 2.0 got stranded lol
+        logger.warn("keystore.properties is missing, release builds will be signed with a DEBUG key and wont update over real releases")
     }
 
     buildTypes {

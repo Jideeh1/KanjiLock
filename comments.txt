@@ -1,7 +1,7 @@
 KanjiLock comments
 file, line, comment
 
-new in v2.1.0 (74 comments)
+new in v2.1.0 (77 comments)
   app/src/main/java/com/jideeh/kanjilock/Data.kt
     line 130: //off means a right answer opens the meaning n waits for the next button, on just yeets u to the next card
     line 134: //say the word out loud when the answer opens up
@@ -79,8 +79,12 @@ new in v2.1.0 (74 comments)
     line 1336: //right answer chime. games use it n so does typing the reading in normal review
     line 1342: //this thing was way louder than the grade sounds, blew my ears out
   app/build.gradle.kts
-    line 85: //japanese ocr for the text extractor. the model ships inside the apk so it works with no wifi
-    line 87: //camerax just for the scanner preview, nothing else touches it
+    line 31: //no key = release gets signed with whatever debug key this pc has, n phones refuse it as an update. thats how 2.0 got stranded lol
+    line 88: //japanese ocr for the text extractor. the model ships inside the apk so it works with no wifi
+    line 90: //camerax just for the scanner preview, nothing else touches it
+  app/proguard-rules.pro
+    line 16: #same deal for the text scanner, r8 eats the ocr internals and then scanning just dies in release
+    line 21: #camerax builds its config classes by reflection, dont let r8 rename em
 
 all comments
 
@@ -368,10 +372,11 @@ app/src/main/java/com/jideeh/kanjilock/Ui.kt
 
 app/build.gradle.kts
   line 20: //put ur own key in keystore.properties (never commit it), otherwise release uses the debug key
-  line 38: //phones are all arm, the x86 libs are just for emulators and double the size of the handwriting lib
-  line 48: //github builds can update themselves from releases, play builds cant (play policy)
-  line 85: //japanese ocr for the text extractor. the model ships inside the apk so it works with no wifi
-  line 87: //camerax just for the scanner preview, nothing else touches it
+  line 31: //no key = release gets signed with whatever debug key this pc has, n phones refuse it as an update. thats how 2.0 got stranded lol
+  line 41: //phones are all arm, the x86 libs are just for emulators and double the size of the handwriting lib
+  line 51: //github builds can update themselves from releases, play builds cant (play policy)
+  line 88: //japanese ocr for the text extractor. the model ships inside the apk so it works with no wifi
+  line 90: //camerax just for the scanner preview, nothing else touches it
 
 app/src/test/java/com/jideeh/kanjilock/KanjiLockTest.kt
   line 180: //unzips the real db once into tmp
@@ -386,3 +391,5 @@ app/proguard-rules.pro
   line 1: #keep everything, widget n zstd break without it
   line 6: #ml kit and workmanager make these by name when the app starts, r8 was stripping the constructors so release crashed on open
   line 11: #handwriting (ml kit) talks to native code and reads its model list with gson, keep all of it whole so draw to search doesnt break in release
+  line 16: #same deal for the text scanner, r8 eats the ocr internals and then scanning just dies in release
+  line 21: #camerax builds its config classes by reflection, dont let r8 rename em
