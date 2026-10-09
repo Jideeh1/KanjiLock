@@ -1,4 +1,5 @@
 *.iml
+comments.txt
 .gradle/
 /local.properties
 /.idea/
@@ -16,4 +17,3 @@ keystore.properties
 *.aab
 PLAY_STORE_CHECKLIST.md
 PRIVACY_POLICY.md
-*.txt
