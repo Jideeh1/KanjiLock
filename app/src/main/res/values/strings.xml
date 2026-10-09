@@ -234,6 +234,8 @@
     <string name="daily_goal_sub">Words + reviews that fill a day\'s flame</string>
     <string name="sfx_label">Sound effects</string>
     <string name="sfx_sub">Again · Hard · Good · Easy sounds</string>
+    <string name="speak_title">Say the word on reveal</string>
+    <string name="speak_sub">Plays the reading out loud when you tap Show</string>
     <string name="section_reminders">Reminders</string>
     <string name="remind_daily_label">Study reminder</string>
     <string name="remind_daily_sub">When you have cards waiting</string>
@@ -268,6 +270,35 @@
     <string name="dict_none_body">Try the dictionary form (taberu, not tabeta) or a shorter English word.</string>
     <string name="add_to_deck">Add to deck</string>
     <string name="save_to_mined">Mine</string>
+    <string name="tab_dict">Dict</string>
+    <string name="dict_kicker">Dictionary</string>
+    <string name="dict_title">Look it up</string>
+    <string name="dict_sub">%1$,d words · %2$,d kanji, all offline</string>
+    <string name="dict_draw">Draw a kanji</string>
+    <string name="dict_scan">Scan text</string>
+    <string name="dict_recent">Recent</string>
+    <string name="dict_clear_recent">Clear</string>
+    <string name="copy">Copy</string>
+    <string name="copied">Copied %1$s</string>
+    <string name="kanji_breakdown">Kanji in this word</string>
+    <string name="kanji_breakdown_sub">Tap one to see what it means on its own</string>
+    <!--text extractor-->
+    <string name="scan_title">Scan Japanese text</string>
+    <string name="scan_sub">Point at the text, it freezes when it finds some.</string>
+    <string name="scan_looking">Looking for Japanese text…</string>
+    <string name="scan_found">%1$d words found</string>
+    <string name="scan_retake">Scan again</string>
+    <string name="scan_pick_image">Pick an image</string>
+    <string name="scan_need_camera">&app; needs the camera to read text off a page. Nothing leaves your phone, the text is read on the device.</string>
+    <string name="scan_camera_denied">Camera permission was turned down. You can still pick an image instead.</string>
+    <string name="scan_camera_failed">Couldn\'t start the camera.</string>
+    <string name="scan_no_text">No Japanese text in that image.</string>
+    <string name="scan_reading">Reading the image…</string>
+    <string name="scan_tap_hint">Tap any underlined word for its meaning.</string>
+    <string name="scan_copy_all">Copy all</string>
+    <string name="scan_unknown">Not in the dictionary</string>
+    <string name="scan_mine_all">Mine every word</string>
+    <string name="scan_mined_n">Added %1$d words to Mined</string>
     <string name="about_credits">Dictionary data: JMdict and KANJIDIC2 © EDRDG (CC BY-SA 4.0). Example sentences from Tatoeba (CC BY 2.0 FR).</string>
     <string name="ankidroid_consent_title">Connect to AnkiDroid?</string>
     <string name="ankidroid_consent_body">&app; will read your AnkiDroid deck list and cards, and send your review answers back to AnkiDroid so its own sync can upload them. This all stays on your phone. Android will ask you to allow it next.</string>
@@ -340,6 +371,11 @@
     <string name="practice_done_title">Round done</string>
     <string name="practice_done_body">%1$d right on the first try out of %2$d.</string>
     <string name="practice_restart">Shuffle and go again</string>
+    <string name="practice_check">Check</string>
+    <string name="auto_next">Auto next</string>
+    <string name="auto_next_off_sub">A right answer opens the meaning and waits for Next.</string>
+    <string name="auto_next_on_sub">A right answer jumps straight to the next card.</string>
+    <string name="listen_enter_hint">Press enter to check. Typos cost nothing until you do.</string>
 
     <!--words decks tab-->
     <string name="tab_decks">Decks %1$d</string>
@@ -397,6 +433,9 @@
     <string name="update_check_failed">Couldn\'t reach GitHub. Try again later.</string>
     <!--themes-->
     <string name="section_theme">Theme</string>
+    <string name="theme_dark_group">Dark</string>
+    <string name="theme_light_group">Light</string>
+    <string name="theme_current">%1$s theme</string>
     <string name="widget_dark_title">Dark widgets</string>
     <string name="widget_dark_sub">Darker background so the text stays readable on light wallpapers</string>
     <!--stats-->

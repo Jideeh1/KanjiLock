@@ -40,6 +40,16 @@ import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
 import com.jideeh.kanjilock.DailyWordManager.Status
 import com.google.android.gms.tasks.Task
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.graphics.BitmapFactory
+import android.widget.Toast
+import androidx.camera.core.ImageProxy
+import androidx.camera.lifecycle.ProcessCameraProvider
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.TextRecognizer
+import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.common.model.RemoteModelManager
 import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognition
@@ -296,11 +306,34 @@ object Study {
 
     //meaning and reverse need a front and a meaning on every card
     fun choiceCards(ctx: Context, deck: Deck): List<DeckCard> =
-        allCards(ctx, deck).filter { it.front.isNotBlank() && it.meaning.isNotBlank() }.shuffled()
+        allCards(ctx, deck).filter { it.front.isNotBlank() && safeMeaning(it).isNotBlank() }.shuffled()
+
+    private val BRACKETS = Regex("[（(\\[【][^）)\\]】]*[）)\\]】]")
+    private val GAP = Regex("\\s{2,}")
+    private val EDGE = Regex("^[\\s\\p{Punct}、。・…—–~〜:：;；,，/|]+|[\\s\\p{Punct}、。・…—–~〜:：;；,，/|]+$")
+
+    //so many decks shove the word or its reading into the meaning field which straight up hands u the
+    //answer in meaning n reverse. this is the meaning with all the giveaway crap stripped out
+    fun safeMeaning(card: DeckCard): String {
+        var t = card.meaning.trim()
+        if (t.isEmpty()) return t
+        val giveaways = (listOf(card.front, card.reading) + card.answers)
+            .map { it.trim() }.filter { it.isNotEmpty() && Jp.hasJapanese(it) }
+            .distinct().sortedByDescending { it.length }
+        if (giveaways.isEmpty()) return t
+        //nuke whole brackets that only existed to hold the word, like "Japan（日本）"
+        t = BRACKETS.replace(t) { m -> if (giveaways.any { g -> m.value.contains(g) }) " " else m.value }
+        for (g in giveaways) t = t.replace(g, " ")
+        //a shared kanji is still like half the answer, kana only definitions stay readable tho
+        val fronted = card.front.filter { Jp.isKanji(it) }.toSet()
+        if (fronted.isNotEmpty()) t = t.map { if (it in fronted) ' ' else it }.joinToString("")
+        t = GAP.replace(t, " ")
+        return EDGE.replace(t.trim(), "").trim()
+    }
 
     //the right one plus 3 others that dont look the same, shuffled
     fun choices(pool: List<DeckCard>, card: DeckCard, reverse: Boolean, rnd: kotlin.random.Random = kotlin.random.Random): List<String> {
-        fun pick(c: DeckCard) = if (reverse) c.front.trim() else c.meaning.trim()
+        fun pick(c: DeckCard) = if (reverse) c.front.trim() else safeMeaning(c)
         val right = pick(card)
         val others = pool.asSequence().filter { it.id != card.id }.map { pick(it) }
             .filter { it.isNotBlank() && !it.equals(right, ignoreCase = true) }
@@ -1425,6 +1458,117 @@ object Handwriting {
     fun close() { recognizer?.close(); recognizer = null }
 }
 
+
+
+//reads japanese off a photo with ml kit, then chops every line into words with the dict
+object Ocr {
+    //one line the camera read, already chopped into words
+    class Line(val text: String, val tokens: List<Jp.Token>)
+
+    //the frozen frame plus everything we got off it
+    class Shot(val image: Bitmap, val lines: List<Line>)
+
+    @Volatile private var client: TextRecognizer? = null
+
+    private fun client(): TextRecognizer =
+        client ?: synchronized(this) {
+            client ?: TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build()).also { client = it }
+        }
+
+    fun close() {
+        synchronized(this) { runCatching { client?.close() }; client = null }
+    }
+
+    private suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { c ->
+        addOnSuccessListener { if (c.isActive) c.resume(it) }
+        addOnFailureListener { if (c.isActive) c.resumeWithException(it) }
+    }
+
+    //the splitter asks about the same surface over n over so just remember what the dict said
+    private val seen = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+
+    private fun inDict(ctx: Context, surface: String): Boolean =
+        seen.getOrPut(surface) { Dictionary.exact(ctx, surface) != null }
+
+    //every line it read, with the words already looked up
+    suspend fun read(ctx: Context, bitmap: Bitmap): List<Line> {
+        val text = client().process(InputImage.fromBitmap(bitmap, 0)).await()
+        val raw = text.textBlocks.flatMap { b -> b.lines }
+            .map { it.text.trim() }
+            .filter { Jp.countJapanese(it) >= 1 }
+            .distinct()
+        return withContext(Dispatchers.IO) {
+            raw.map { line -> Line(line, Jp.tokenize(line) { s -> if (inDict(ctx, s)) s else null }) }
+        }
+    }
+
+    //one stray kana off some logo aint worth freezing the frame for
+    fun enough(lines: List<Line>): Boolean = lines.sumOf { Jp.countJapanese(it.text) } >= 2
+
+    fun words(lines: List<Line>): List<Jp.Token> =
+        lines.flatMap { it.tokens }.filter { it.known && Jp.hasJapanese(it.text) }.distinctBy { it.lookup }
+
+    fun plain(lines: List<Line>): String = lines.joinToString("\n") { it.text }
+}
+
+fun copyToClipboard(ctx: Context, text: String) {
+    if (text.isBlank()) return
+    val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
+    cm.setPrimaryClip(ClipData.newPlainText("KanjiLock", text))
+    //13 n up shows its own copy toast so dont double up on it
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+        Toast.makeText(ctx, ctx.getString(R.string.copied, text.take(24)), Toast.LENGTH_SHORT).show()
+    }
+}
+
+//camera bits for the scanner. the compose side lives in Screens.kt
+object Cam {
+    suspend fun provider(ctx: Context): ProcessCameraProvider = suspendCancellableCoroutine { c ->
+        val future = ProcessCameraProvider.getInstance(ctx)
+        future.addListener({
+            runCatching { future.get() }
+                .onSuccess { if (c.isActive) c.resume(it) }
+                .onFailure { if (c.isActive) c.resumeWithException(it) }
+        }, ContextCompat.getMainExecutor(ctx))
+    }
+
+    //the sensor is sideways basicaly always, ml kit wants the text upright
+    fun upright(proxy: ImageProxy): Bitmap {
+        val raw = proxy.toBitmap()
+        val deg = proxy.imageInfo.rotationDegrees
+        if (deg == 0) return raw
+        val m = Matrix().apply { postRotate(deg.toFloat()) }
+        return Bitmap.createBitmap(raw, 0, 0, raw.width, raw.height, m, true)
+    }
+
+    //gallery pics can be absolutely massive, 2000px on the long side is plenty for ocr
+    fun load(ctx: Context, uri: Uri): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        val longest = maxOf(bounds.outWidth, bounds.outHeight)
+        if (longest <= 0) return null
+        var sample = 1
+        while (longest / sample > 2000) sample *= 2
+        val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+        val bmp = ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) } ?: return null
+        val deg = rotation(ctx, uri)
+        if (deg == 0) return bmp
+        val m = Matrix().apply { postRotate(deg.toFloat()) }
+        return Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
+    }
+
+    //half the photos out there are sideways untill u read the exif
+    private fun rotation(ctx: Context, uri: Uri): Int = runCatching {
+        ctx.contentResolver.openInputStream(uri)?.use { stream ->
+            when (android.media.ExifInterface(stream).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, 1)) {
+                android.media.ExifInterface.ORIENTATION_ROTATE_90 -> 90
+                android.media.ExifInterface.ORIENTATION_ROTATE_180 -> 180
+                android.media.ExifInterface.ORIENTATION_ROTATE_270 -> 270
+                else -> 0
+            }
+        } ?: 0
+    }.getOrDefault(0)
+}
 
 //if the app crashes the error gets saved, next time it opens it shows it so u can copy it and send it
 object CrashLog {

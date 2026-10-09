@@ -1,5 +1,6 @@
 package com.jideeh.kanjilock
 
+import androidx.compose.ui.platform.LocalConfiguration
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import dev.chrisbanes.haze.blur.HazeBlurStyle
@@ -216,6 +217,11 @@ class MainActivity : ComponentActivity() {
         DriveSync.sessionEnd(this)
         super.onStop()
     }
+
+    override fun onDestroy() {
+        Voice.shutdown()
+        super.onDestroy()
+    }
 }
 
 //colors from the teal glass reference
@@ -272,7 +278,74 @@ object Palettes {
         light = true, pill = Color(0xFF1B2430), onPill = Color(0xFFF7F9FB),
         again = Color(0xFFC94A44), hard = Color(0xFFB07A1E), good = Color(0xFF2E8A5F), easy = Color(0xFF3F7DB8), flame = Color(0xFFE5791F)
     )
-    val all = listOf(Teal, Midnight, Sakura, Matcha, Sumi, Ocean, Ember, Honey, Lavender, Void, Washi, Lemon, Snow)
+    //more darks
+    val Indigo = Palette(
+        "indigo", "Indigo", Color(0xFF0B1026), Color(0xFF131A3C), Color(0xFF293566), Color(0xFFEEF0FF), Color(0xFF9CA4D0), Color(0xFF666E9C),
+        pill = Color(0xFFBFC8FF), onPill = Color(0xFF131A3C), easy = Color(0xFF7D9BFF), flame = Color(0xFFFFB55C)
+    )
+    val Mocha = Palette(
+        "mocha", "Mocha", Color(0xFF17110D), Color(0xFF231A14), Color(0xFF473528), Color(0xFFF6EDE4), Color(0xFFBFA996), Color(0xFF8A7664),
+        pill = Color(0xFFE7C9A3), onPill = Color(0xFF231A14), flame = Color(0xFFE09A4F)
+    )
+    val Forest = Palette(
+        "forest", "Forest", Color(0xFF071410), Color(0xFF0C2019), Color(0xFF17402F), Color(0xFFE9F6EF), Color(0xFF93B5A4), Color(0xFF5E8070),
+        pill = Color(0xFFA8E6C1), onPill = Color(0xFF0C2019), good = Color(0xFF4CC98B), flame = Color(0xFFFFC46B)
+    )
+    val Wine = Palette(
+        "wine", "Wine", Color(0xFF180A0F), Color(0xFF261017), Color(0xFF511F32), Color(0xFFF9EBF0), Color(0xFFC396A6), Color(0xFF8C6473),
+        pill = Color(0xFFF2A8C0), onPill = Color(0xFF261017), again = Color(0xFFFF7A74), flame = Color(0xFFFF8FA3)
+    )
+    val Grape = Palette(
+        "grape", "Grape", Color(0xFF130B1E), Color(0xFF1D1130), Color(0xFF3C2160), Color(0xFFF2EBFC), Color(0xFFAE9BCB), Color(0xFF786691),
+        pill = Color(0xFFC9A6FF), onPill = Color(0xFF1D1130), easy = Color(0xFF9B7BFF), flame = Color(0xFFFF9FD6)
+    )
+    val Slate = Palette(
+        "slate", "Slate", Color(0xFF0E1214), Color(0xFF161B1E), Color(0xFF2B343A), Color(0xFFEDF1F3), Color(0xFF98A4AB), Color(0xFF68747A),
+        pill = Color(0xFFB9C6CE), onPill = Color(0xFF161B1E)
+    )
+    val Neon = Palette(
+        "neon", "Neon", Color(0xFF05080D), Color(0xFF080E18), Color(0xFF0E1C2E), Color(0xFFE6FBFF), Color(0xFF7FA8BC), Color(0xFF4D7A8C),
+        pill = Color(0xFF3BF0D0), onPill = Color(0xFF05080D), good = Color(0xFF2FE0A8), easy = Color(0xFF49C9FF), flame = Color(0xFFFF4F9A)
+    )
+    val Clay = Palette(
+        "clay", "Clay", Color(0xFF1A110D), Color(0xFF281811), Color(0xFF55301F), Color(0xFFFBEEE6), Color(0xFFC6A392), Color(0xFF8E6B5A),
+        pill = Color(0xFFF0A57A), onPill = Color(0xFF281811), flame = Color(0xFFFF8E4A)
+    )
+
+    //more lights, for the ppl who study at 2pm
+    val Sand = Palette(
+        "sand", "Sand", Color(0xFFFBF7F0), Color(0xFFF3ECE0), Color(0xFFE2D6C1), Color(0xFF23201A), Color(0xFF5F5A4F), Color(0xFF8E887B),
+        light = true, pill = Color(0xFF23201A), onPill = Color(0xFFFBF7F0),
+        again = Color(0xFFC94A44), hard = Color(0xFFA9761C), good = Color(0xFF2E8A5F), easy = Color(0xFF3F7DB8), flame = Color(0xFFD9741B)
+    )
+    val Sage = Palette(
+        "sage", "Sage", Color(0xFFF4F8F3), Color(0xFFE8F0E6), Color(0xFFCFDECA), Color(0xFF1A241B), Color(0xFF55634F), Color(0xFF84927E),
+        light = true, pill = Color(0xFF24402C), onPill = Color(0xFFF4F8F3),
+        again = Color(0xFFC25048), hard = Color(0xFFA9761C), good = Color(0xFF2E8A5F), easy = Color(0xFF3F7DB8), flame = Color(0xFFD9741B)
+    )
+    val Blossom = Palette(
+        "blossom", "Blossom", Color(0xFFFFF6F8), Color(0xFFFCE9EE), Color(0xFFF3CCD8), Color(0xFF2A1A20), Color(0xFF6B4E57), Color(0xFF9B7F88),
+        light = true, pill = Color(0xFF8C3350), onPill = Color(0xFFFFF6F8),
+        again = Color(0xFFC94A44), hard = Color(0xFFB07A1E), good = Color(0xFF2E8A5F), easy = Color(0xFF3F7DB8), flame = Color(0xFFE2567F)
+    )
+    val Sky = Palette(
+        "sky", "Sky", Color(0xFFF5FAFF), Color(0xFFE7F2FC), Color(0xFFC9DEF2), Color(0xFF13202C), Color(0xFF4F6271), Color(0xFF7D909F),
+        light = true, pill = Color(0xFF1C4C76), onPill = Color(0xFFF5FAFF),
+        again = Color(0xFFC94A44), hard = Color(0xFFB07A1E), good = Color(0xFF2E8A5F), easy = Color(0xFF2E6FA8), flame = Color(0xFFE5791F)
+    )
+    val Paper = Palette(
+        "paper", "Paper", Color(0xFFFFFFFF), Color(0xFFF4F4F5), Color(0xFFE2E2E5), Color(0xFF121214), Color(0xFF55555C), Color(0xFF86868E),
+        light = true, pill = Color(0xFF121214), onPill = Color(0xFFFFFFFF),
+        again = Color(0xFFC94A44), hard = Color(0xFFB07A1E), good = Color(0xFF2E8A5F), easy = Color(0xFF3F7DB8), flame = Color(0xFFE5791F)
+    )
+
+    val all = listOf(
+        Teal, Midnight, Sakura, Matcha, Sumi, Ocean, Ember, Honey, Lavender, Void,
+        Indigo, Mocha, Forest, Wine, Grape, Slate, Neon, Clay,
+        Washi, Lemon, Snow, Sand, Sage, Blossom, Sky, Paper
+    )
+    val darks = all.filter { !it.light }
+    val lights = all.filter { it.light }
     fun byId(id: String) = all.firstOrNull { it.id == id } ?: Teal
 }
 
@@ -846,6 +919,7 @@ private enum class Tab(val icon: ImageVector, val label: String) {
     TODAY(Ic.home, "Today"),
     STUDY(Ic.cards, "Study"),
     WORDS(Ic.bookmark, "Words"),
+    DICT(Ic.dict, "Dictionary"),
     SETTINGS(Ic.settings, "Settings"),
 }
 
@@ -923,6 +997,7 @@ fun KanjiApp() {
                 Tab.TODAY -> TodayScreen(tick, snackbar, onStudy = { go(Tab.STUDY.ordinal) })
                 Tab.STUDY -> StudyScreen(tick)
                 Tab.WORDS -> WordsScreen(tick, snackbar)
+                Tab.DICT -> DictionaryScreen(tick, snackbar)
                 Tab.SETTINGS -> SettingsScreen(tick, snackbar)
             }
         }
@@ -1012,18 +1087,28 @@ private fun FloatingBar(
     modifier: Modifier = Modifier
 ) {
     val shape = RoundedCornerShape(20.dp)
+    //5 tabs plus the add button straight up dont fit at 56dp on a small phone so the buttons shrink to fit.
+    //the add buttons slot always counts even when its hidden otherwise everything jumps when it slides in
+    val n = Tab.entries.size
+    val gap = 7.dp
+    val pad = 7.dp
+    val screen = LocalConfiguration.current.screenWidthDp.dp
+    val fixed = gap * (n - 1) + pad * 4 + gap + 10.dp
+    val btn = ((screen - 24.dp - fixed) / (n + 1)).coerceIn(42.dp, 56.dp)
+    val ico = btn * 3 / 7
+
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(
             Modifier
                 .clip(shape)
                 .background(Ink.BgMid.copy(alpha = 0.92f))
                 .border(1.dp, Ink.GlassStroke, shape)
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(pad),
+            horizontalArrangement = Arrangement.spacedBy(gap)
         ) {
             Tab.entries.forEachIndexed { i, t ->
                 Box {
-                    GlassIconButton(t.icon, t.label, selected = selected == i, size = 56.dp, iconSize = 24.dp) { onSelect(i) }
+                    GlassIconButton(t.icon, t.label, selected = selected == i, size = btn, iconSize = ico) { onSelect(i) }
                     if (t == Tab.STUDY && studyBadge > 0) {
                         Box(
                             Modifier
@@ -1049,9 +1134,9 @@ private fun FloatingBar(
                     .clip(shape)
                     .background(Ink.BgMid.copy(alpha = 0.92f))
                     .border(1.dp, Ink.GlassStroke, shape)
-                    .padding(8.dp)
+                    .padding(pad)
             ) {
-                GlassIconButton(Ic.add, "Add word", size = 56.dp, iconSize = 24.dp, onClick = onAdd)
+                GlassIconButton(Ic.add, "Add word", size = btn, iconSize = ico, onClick = onAdd)
             }
         }
     }
@@ -1122,6 +1207,29 @@ class Speaker(ctx: Context) {
     }
 
     fun shutdown() = tts.shutdown()
+}
+
+//one shared voice so every screen dosent spin up its own tts engine
+object Voice {
+    @Volatile private var speaker: Speaker? = null
+
+    fun say(ctx: Context, text: String) {
+        if (text.isBlank()) return
+        val s = speaker ?: synchronized(this) { speaker ?: Speaker(ctx.applicationContext).also { speaker = it } }
+        s.speak(text)
+    }
+
+    //reading is the actual pronunciation, fall back to the word if theres none
+    fun sayCard(ctx: Context, card: DeckCard) = say(ctx, Study.spoken(card).ifBlank { card.front })
+
+    //runs when the answer opens, stays quiet unless the setting is on
+    fun onShow(ctx: Context, card: DeckCard) {
+        if (Prefs.speakOnShow(ctx)) sayCard(ctx, card)
+    }
+
+    fun shutdown() {
+        synchronized(this) { speaker?.shutdown(); speaker = null }
+    }
 }
 
 object Importer {
@@ -1225,10 +1333,14 @@ object Sfx {
         init(ctx)
         pool?.play(ids[grade.coerceIn(0, 3)], 0.9f, 0.9f, 1, 0, 1f)
     }
+    //right answer chime. games use it n so does typing the reading in normal review
+    fun correct(ctx: Context) = play(ctx, 2)
+
     fun achievement(ctx: Context) {
         if (!Prefs.sfx(ctx)) return
         init(ctx)
-        pool?.play(ids[4], 1f, 1f, 2, 0, 1f)
+        //this thing was way louder than the grade sounds, blew my ears out
+        pool?.play(ids[4], 0.45f, 0.45f, 2, 0, 1f)
     }
 }
 
@@ -1245,6 +1357,8 @@ object Ic {
     val play by lazy { v("play", "M8,5v14l11,-7z") }
     val fullscreen by lazy { v("fullscreen", "M7,14H5v5h5v-2H7v-3zM5,10h2V7h3V5H5v5zm12,7h-3v2h5v-5h-2v3zM14,5v2h3v3h2V5h-5z") }
     val book by lazy { v("book", "M18,2H6c-1.1,0 -2,0.9 -2,2v16c0,1.1 0.9,2 2,2h12c1.1,0 2,-0.9 2,-2V4c0,-1.1 -0.9,-2 -2,-2zM6,4h5v8l-2.5,-1.5L6,12V4z") }
+    val camera by lazy { v("camera", "M9,2L7.17,4H4C2.9,4 2,4.9 2,6v12c0,1.1 0.9,2 2,2h16c1.1,0 2,-0.9 2,-2V6c0,-1.1 -0.9,-2 -2,-2h-3.17L15,2H9zM12,17c-2.76,0 -5,-2.24 -5,-5s2.24,-5 5,-5 5,2.24 5,5 -2.24,5 -5,5zM12,9c-1.65,0 -3,1.35 -3,3s1.35,3 3,3 3,-1.35 3,-3 -1.35,-3 -3,-3z") }
+    val dict by lazy { v("dict", "M4,3h7c1.1,0 2,0.9 2,2v15c0,-0.83 -0.67,-1.5 -1.5,-1.5H4V3zM20,3h-5c-1.1,0 -2,0.9 -2,2v15c0,-0.83 0.67,-1.5 1.5,-1.5H20V3zM3,21h18v-1H3v1z") }
     val bookmark by lazy { v("bookmark", "M17,3H7c-1.1,0 -2,0.9 -2,2v16l7,-3 7,3V5c0,-1.1 -0.9,-2 -2,-2z") }
     val calendar by lazy { v("calendar", "M20,3h-1V1h-2v2H7V1H5v2H4c-1.1,0 -2,0.9 -2,2v16c0,1.1 0.9,2 2,2h16c1.1,0 2,-0.9 2,-2V5c0,-1.1 -0.9,-2 -2,-2zM20,21H4V8h16v13z") }
     val cards by lazy { v("cards", "M2.53,19.65l1.34,0.56v-9.03l-2.43,5.86c-0.41,1.02 0.08,2.19 1.09,2.61zM22.03,15.95L17.07,3.98c-0.31,-0.75 -1.04,-1.21 -1.81,-1.23 -0.26,0 -0.53,0.04 -0.79,0.15L7.1,5.95c-0.75,0.31 -1.21,1.03 -1.23,1.8 -0.01,0.27 0.04,0.54 0.15,0.8l4.96,11.97c0.31,0.76 1.05,1.22 1.83,1.23 0.26,0 0.52,-0.05 0.77,-0.15l7.36,-3.05c1.02,-0.42 1.51,-1.59 1.09,-2.6zM7.88,8.75c-0.55,0 -1,-0.45 -1,-1s0.45,-1 1,-1 1,0.45 1,1 -0.45,1 -1,1zM5.88,19.75c0,1.1 0.9,2 2,2h1.45l-3.45,-8.34v6.34z") }

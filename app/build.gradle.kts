@@ -13,8 +13,8 @@ android {
         applicationId = "com.jideeh.kanjilock"
         minSdk = 26
         targetSdk = 37
-        versionCode = 9
-        versionName = "2.0.0"
+        versionCode = 10
+        versionName = "2.1.0"
     }
 
     //put ur own key in keystore.properties (never commit it), otherwise release uses the debug key
@@ -82,6 +82,14 @@ dependencies {
     implementation("dev.chrisbanes.haze:haze:2.0.1")
     implementation("dev.chrisbanes.haze:haze-blur:2.0.1")
     implementation("com.google.mlkit:digital-ink-recognition:19.0.0")
+    //japanese ocr for the text extractor. the model ships inside the apk so it works with no wifi
+    implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
+    //camerax just for the scanner preview, nothing else touches it
+    val cameraX = "1.6.2"
+    implementation("androidx.camera:camera-core:$cameraX")
+    implementation("androidx.camera:camera-camera2:$cameraX")
+    implementation("androidx.camera:camera-lifecycle:$cameraX")
+    implementation("androidx.camera:camera-view:$cameraX")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.github.luben:zstd-jni:1.5.7-21")

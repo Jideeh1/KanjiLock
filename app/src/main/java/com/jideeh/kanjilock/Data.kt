@@ -126,6 +126,14 @@ object Prefs {
 
     fun practice(ctx: Context): Boolean = sp(ctx).getBoolean("practice", false)
     fun setPractice(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("practice", v).apply()
+
+    //off means a right answer opens the meaning n waits for the next button, on just yeets u to the next card
+    fun autoNext(ctx: Context): Boolean = sp(ctx).getBoolean("auto_next", false)
+    fun setAutoNext(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("auto_next", v).apply()
+
+    //say the word out loud when the answer opens up
+    fun speakOnShow(ctx: Context): Boolean = sp(ctx).getBoolean("speak_on_show", true)
+    fun setSpeakOnShow(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("speak_on_show", v).apply()
     //which game practice mode plays, reading is what practice used to be
     fun studyMode(ctx: Context): String = sp(ctx).getString("study_mode", null) ?: "reading"
     fun setStudyMode(ctx: Context, v: String) = sp(ctx).edit().putString("study_mode", v).apply()
@@ -166,6 +174,7 @@ object Prefs {
         KEY_WORDS_PER_DAY to wordsPerDay(ctx), KEY_SOURCE to source(ctx), KEY_DISPLAY_MODE to displayMode(ctx),
         "widget_bg" to widgetBg(ctx),
         "new_per_day" to newPerDay(ctx), "sfx" to sfx(ctx), "vibrate" to vibrate(ctx), "theme" to theme(ctx), "widget_dark" to widgetDark(ctx), "daily_goal" to dailyGoal(ctx),
+        "auto_next" to autoNext(ctx), "speak_on_show" to speakOnShow(ctx),
         "remind_daily" to remindDaily(ctx), "remind_minutes" to remindMinutes(ctx),
         "remind_streak" to remindStreak(ctx), "streak_minutes" to streakMinutes(ctx)
     )
@@ -180,6 +189,8 @@ object Prefs {
         (m["sfx"] as? Boolean)?.let { e.putBoolean("sfx", it) }
         (m["vibrate"] as? Boolean)?.let { e.putBoolean("vibrate", it) }
         (m["theme"] as? String)?.let { e.putString("theme", it) }
+        (m["auto_next"] as? Boolean)?.let { e.putBoolean("auto_next", it) }
+        (m["speak_on_show"] as? Boolean)?.let { e.putBoolean("speak_on_show", it) }
         (m["widget_dark"] as? Boolean)?.let { e.putBoolean("widget_dark", it) }
         (m["daily_goal"] as? Number)?.let { e.putInt("daily_goal", it.toInt()) }
         (m["remind_daily"] as? Boolean)?.let { e.putBoolean("remind_daily", it) }
@@ -696,6 +707,104 @@ object Romaji {
     }
 }
 
+//japanese char tests n the word splitter the text extractor runs on
+object Jp {
+    fun isKanji(c: Char) = c in '一'..'鿿' || c == '々' || c == '〆'
+    fun isHiragana(c: Char) = c in 'ぁ'..'ゞ'
+    fun isKatakana(c: Char) = c in 'ァ'..'ヺ' || c == 'ー' || c in 'ｦ'..'ﾝ'
+    fun isKana(c: Char) = isHiragana(c) || isKatakana(c)
+    fun isJapanese(c: Char) = isKanji(c) || isKana(c)
+
+    //ocr grabs every latin sign in the shot too, only japanese is worth freezing the frame for
+    fun hasJapanese(s: String) = s.any { isJapanese(it) }
+    fun countJapanese(s: String) = s.count { isJapanese(it) }
+
+    //ます stem is the i row, plain form is the u row of the same column
+    private val I_TO_U = mapOf('い' to 'う', 'き' to 'く', 'ぎ' to 'ぐ', 'し' to 'す', 'ち' to 'つ', 'に' to 'ぬ', 'ひ' to 'ふ', 'び' to 'ぶ', 'み' to 'む', 'り' to 'る')
+    //ない sticks onto the a row
+    private val A_TO_U = mapOf('わ' to 'う', 'か' to 'く', 'が' to 'ぐ', 'さ' to 'す', 'た' to 'つ', 'な' to 'ぬ', 'ば' to 'ぶ', 'ま' to 'む', 'ら' to 'る')
+
+    private val MASU = setOf("ます", "ました", "ません", "まして", "ましょう", "ませんでした")
+    private val NAI = setOf("ない", "なかった", "なくて")
+
+    //suffix to whatever the plain form could end with. longest ones go first so they win the match
+    private val DEINFLECT: List<Pair<String, List<String>>> = listOf(
+        "ませんでした" to listOf("る"),
+        "しています" to listOf("する"), "していた" to listOf("する"), "しました" to listOf("する"),
+        "しません" to listOf("する"), "しましょう" to listOf("する"), "している" to listOf("する"),
+        "しない" to listOf("する"), "します" to listOf("する"), "して" to listOf("する", "す"),
+        "した" to listOf("する", "す"),
+        "ましょう" to listOf("る"), "ません" to listOf("る"), "ました" to listOf("る"),
+        "まして" to listOf("る"), "ます" to listOf("る"),
+        "なかった" to listOf("る"), "なくて" to listOf("る"), "ない" to listOf("る"),
+        "させられる" to listOf("する"), "られる" to listOf("る"), "させる" to listOf("する"),
+        "れる" to listOf("る"), "せる" to listOf("す", "る"),
+        "ています" to listOf("る"), "ていた" to listOf("る"), "ている" to listOf("る"), "てる" to listOf("る"),
+        "たい" to listOf("る"), "たかった" to listOf("る"),
+        "くなかった" to listOf("い"), "くない" to listOf("い"), "かった" to listOf("い"),
+        "くて" to listOf("い"), "さ" to listOf("い"), "く" to listOf("い"),
+        "って" to listOf("う", "つ", "る"), "った" to listOf("う", "つ", "る"),
+        "んで" to listOf("む", "ぬ", "ぶ"), "んだ" to listOf("む", "ぬ", "ぶ"),
+        "いて" to listOf("く"), "いた" to listOf("く"), "いで" to listOf("ぐ"), "いだ" to listOf("ぐ"),
+        "けば" to listOf("く"), "えば" to listOf("う"), "れば" to listOf("る"),
+        "でした" to listOf("だ"), "だった" to listOf("だ"), "です" to listOf(""),
+        "て" to listOf("る"), "た" to listOf("る"),
+        "的な" to listOf("的"), "的に" to listOf("的")
+    )
+
+    //every plain form this thing might be, the surface itself first
+    fun baseForms(s: String): List<String> {
+        if (s.isEmpty()) return emptyList()
+        val out = LinkedHashSet<String>()
+        out.add(s)
+        for ((suf, adds) in DEINFLECT) {
+            if (s.length <= suf.length || !s.endsWith(suf)) continue
+            val stem = s.dropLast(suf.length)
+            if (stem.isEmpty()) continue
+            for (a in adds) out.add(stem + a)
+            val last = stem.last()
+            if (suf in MASU) I_TO_U[last]?.let { out.add(stem.dropLast(1) + it) }
+            if (suf in NAI) A_TO_U[last]?.let { out.add(stem.dropLast(1) + it) }
+        }
+        return out.toList()
+    }
+
+    //one chunk of a line. japanese chunks carry whatever dict surface actualy matched
+    data class Token(val text: String, val lookup: String, val known: Boolean)
+
+    private const val LONGEST = 8
+
+    //longest match against the dict, walking left to right. dumb but it works lol
+    fun tokenize(text: String, resolve: (String) -> String?): List<Token> {
+        val out = ArrayList<Token>()
+        var i = 0
+        while (i < text.length) {
+            if (!isJapanese(text[i])) {
+                var j = i
+                while (j < text.length && !isJapanese(text[j])) j++
+                out.add(Token(text.substring(i, j), "", false))
+                i = j
+                continue
+            }
+            var taken = 0
+            for (len in minOf(LONGEST, text.length - i) downTo 1) {
+                val cand = text.substring(i, i + len)
+                val hit = baseForms(cand).firstNotNullOfOrNull { f -> resolve(f) } ?: continue
+                out.add(Token(cand, hit, true))
+                taken = len
+                break
+            }
+            if (taken == 0) {
+                //nothing in the dict, but a lone kanji still has its own entry so use that
+                out.add(Token(text[i].toString(), text[i].toString(), isKanji(text[i])))
+                taken = 1
+            }
+            i += taken
+        }
+        return out
+    }
+}
+
 //anki fields are full of html, this cleans it
 object Clean {
     private val br = Regex("(?i)<br\\s*/?>|</div>|</p>|</li>")
@@ -785,6 +894,27 @@ class DictQueries(private val db: SqlSource) {
         }
         return out.values.take(limit)
     }
+
+    //the splitter spams this with like 300 substrings a line so keep it dirt cheap
+    fun exact(surface: String): Word? {
+        if (surface.isBlank()) return null
+        return db.rows(
+            "SELECT $wordCols FROM words WHERE word = ? OR reading = ? ORDER BY common DESC, length(word), id LIMIT 1",
+            listOf(surface, surface)
+        ).firstOrNull()?.let(::toWord)
+    }
+
+    //every entry spelled exactly like this, best first
+    fun allExact(surface: String, limit: Int = 12): List<Word> {
+        if (surface.isBlank()) return emptyList()
+        return db.rows(
+            "SELECT $wordCols FROM words WHERE word = ? OR reading = ? ORDER BY common DESC, length(word), id LIMIT ?",
+            listOf(surface, surface, limit.toString())
+        ).map(::toWord)
+    }
+
+    fun kanji(literal: String): Word? =
+        db.rows("SELECT $kanjiCols FROM kanji WHERE literal = ?", listOf(literal)).firstOrNull()?.let(::toKanji)
 
     private fun toWord(r: List<Any?>): Word {
         val text = r[1].toString()
@@ -883,6 +1013,16 @@ object Dictionary {
         if (id.startsWith("m")) MinedStore.all(ctx).firstOrNull { it.id == id } else queries(ctx).word(id)
 
     fun search(ctx: Context, q: String): List<Word> = queries(ctx).search(q)
+
+    fun exact(ctx: Context, surface: String): Word? = runCatching { queries(ctx).exact(surface) }.getOrNull()
+
+    fun allExact(ctx: Context, surface: String): List<Word> = runCatching { queries(ctx).allExact(surface) }.getOrDefault(emptyList())
+
+    fun kanji(ctx: Context, literal: String): Word? = runCatching { queries(ctx).kanji(literal) }.getOrNull()
+
+    //every kanji inside a word, in order, skipping the ones the dict dosent know
+    fun breakdown(ctx: Context, word: String): List<Word> =
+        word.filter { Jp.isKanji(it) }.toList().distinct().mapNotNull { kanji(ctx, it.toString()) }
 
     fun counts(ctx: Context): Pair<Int, Int> = queries(ctx).counts()
 

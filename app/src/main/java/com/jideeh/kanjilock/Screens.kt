@@ -20,6 +20,27 @@ import androidx.compose.runtime.SideEffect
 import android.view.WindowManager
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import android.Manifest
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.util.Size
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Image
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.ui.input.pointer.pointerInput
@@ -541,6 +562,7 @@ fun StudyScreen(tick: Int) {
     var busy by remember { mutableStateOf(false) }
     var practice by rememberSaveable { mutableStateOf(Prefs.practice(ctx)) }
     var mode by rememberSaveable { mutableStateOf(Prefs.studyMode(ctx).takeIf { it in GameModes } ?: GameModes[0]) }
+    var autoNext by rememberSaveable { mutableStateOf(Prefs.autoNext(ctx)) }
     var focusOpen by rememberSaveable { mutableStateOf(false) }
     var statsOpen by rememberSaveable { mutableStateOf(false) }
     var ankiSheet by remember { mutableStateOf<Deck?>(null) }
@@ -648,6 +670,20 @@ fun StudyScreen(tick: Int) {
                 PillTabs(GameModes.map { stringResource(modeLabel(it)) }, GameModes.indexOf(mode).coerceAtLeast(0), Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                     mode = GameModes[it]; Prefs.setStudyMode(ctx, mode)
                 }
+                //only the typing mode has anything to auto skip
+                if (mode == "reading") {
+                    Spacer(Modifier.height(10.dp))
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ModeChip(stringResource(R.string.auto_next), autoNext, Modifier.weight(1f)) {
+                            autoNext = !autoNext; Prefs.setAutoNext(ctx, autoNext)
+                        }
+                    }
+                    Text(
+                        stringResource(if (autoNext) R.string.auto_next_on_sub else R.string.auto_next_off_sub),
+                        style = MaterialTheme.typography.labelSmall, color = Ink.Faint,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+                    )
+                }
             }
         }
         Text(
@@ -662,7 +698,7 @@ fun StudyScreen(tick: Int) {
                 practice && mode == "listen" -> PracticeSession(deck, focusOpen, close, listen = true)
                 practice && mode == "meaning" -> ChoiceSession(deck, reverse = false, focusOpen, close)
                 practice && mode == "reverse" -> ChoiceSession(deck, reverse = true, focusOpen, close)
-                practice -> PracticeSession(deck, focusOpen, close)
+                practice -> PracticeSession(deck, focusOpen, close, autoNext = autoNext)
                 deck.isLinked -> AnkiDroidSession(deck, tick, focusOpen, close)
                 else -> LocalSession(deck, tick, focusOpen, close)
             }
@@ -1081,9 +1117,9 @@ private fun LocalSession(deck: Deck, tick: Int, focusOpen: Boolean, onCloseFocus
             hint = stringResource(R.string.focus_hint),
             onSubmit = { if (st != null) { if (st.revealed) grade(2) else revealAnswer(ctx, st) } },
             actions = {
-                GradeRow(labels, 4, st?.revealed == true, Modifier.fillMaxWidth()) { g ->
-                    if (st?.revealed == true) grade(g) else st?.let { revealAnswer(ctx, it) }
-                }
+                //used to be just a dimmed grade row, nothing told u how tf to open the answer
+                if (st?.revealed != true) WhitePill(stringResource(R.string.show_answer), Modifier.weight(1f)) { st?.let { revealAnswer(ctx, it) } }
+                else GradeRow(labels, 4, true, Modifier.weight(1f)) { g -> grade(g) }
             },
             empty = empty
         )
@@ -1160,10 +1196,9 @@ private fun AnkiDroidSession(deck: Deck, tick: Int, focusOpen: Boolean, onCloseF
             hint = if (viewing) stringResource(R.string.previous_readonly) else stringResource(R.string.focus_hint),
             onSubmit = { if (st != null && !viewing) { if (st.revealed) grade(2) else revealAnswer(ctx, st) } },
             actions = {
-                if (viewing) WhitePill(stringResource(R.string.back_to_current), Modifier.fillMaxWidth()) { viewing = false }
-                else GradeRow(labels, if (four) 4 else 3, st?.revealed == true, Modifier.fillMaxWidth()) { g ->
-                    if (st?.revealed == true) grade(g) else st?.let { revealAnswer(ctx, it) }
-                }
+                if (viewing) WhitePill(stringResource(R.string.back_to_current), Modifier.weight(1f)) { viewing = false }
+                else if (st?.revealed != true) WhitePill(stringResource(R.string.show_answer), Modifier.weight(1f)) { st?.let { revealAnswer(ctx, it) } }
+                else GradeRow(labels, if (four) 4 else 3, true, Modifier.weight(1f)) { g -> grade(g) }
             },
             empty = { EmptyState("済", stringResource(R.string.study_done_title), stringResource(R.string.ankidroid_done_body)) }
         )
@@ -1173,15 +1208,13 @@ private fun AnkiDroidSession(deck: Deck, tick: Int, focusOpen: Boolean, onCloseF
 //type the reading, right answer jumps to the next one, nothing gets scheduled
 //listen is the same thing but u only get the sound until its revealed
 @Composable
-private fun PracticeSession(deck: Deck, focusOpen: Boolean, onCloseFocus: () -> Unit, listen: Boolean = false) {
+private fun PracticeSession(deck: Deck, focusOpen: Boolean, onCloseFocus: () -> Unit, listen: Boolean = false, autoNext: Boolean = false) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var round by remember(deck.id) { mutableIntStateOf(0) }
     val loaded by produceState<Result<List<DeckCard>>?>(null, deck.id, round) {
         value = withContext(Dispatchers.IO) { runCatching { if (listen) Study.listenCards(ctx, deck) else Study.practiceCards(ctx, deck) } }
     }
-    val speaker = remember { if (listen) Speaker(ctx) else null }
-    DisposableEffect(Unit) { onDispose { speaker?.shutdown() } }
     var index by remember(deck.id, round) { mutableIntStateOf(0) }
     var right by remember(deck.id, round) { mutableIntStateOf(0) }
     var streak by remember(deck.id, round) { mutableIntStateOf(0) }
@@ -1191,34 +1224,46 @@ private fun PracticeSession(deck: Deck, focusOpen: Boolean, onCloseFocus: () -> 
     val card = list.getOrNull(index)
     val st = card?.let { rememberAnswer(it) }
     val focusReq = remember { FocusRequester() }
-    val say = { card?.let { speaker?.speak(Study.spoken(it)) }; Unit }
+    val say = { card?.let { Voice.sayCard(ctx, it) }; Unit }
     LaunchedEffect(card?.id) { if (listen) say() }
     val front: (@Composable () -> Unit)? = if (!listen || st == null || card == null) null else { { ListenFront(card, st.revealed, say) } }
 
     fun miss() { missed[index] = true; streak = 0 }
     fun advance() { index++ }
-    fun checkTyped() {
+
+    fun scoreRight() {
+        if (missed[index] == true) return
+        right++; streak++
+        GameStats.right(ctx, if (listen) "listen" else "reading", streak)
+        if (index == list.lastIndex && right == list.size && list.size >= 20) GameStats.flawlessRound(ctx)
+        Achievements.announce(ctx)
+    }
+
+    //a right answer either yeets u to the next card or opens the meaning n waits for the button
+    fun accept() {
         val s = st ?: return
         if (s.revealed) return
-        if (s.correct) {
-            if (missed[index] != true) {
-                right++; streak++
-                GameStats.right(ctx, if (listen) "listen" else "reading", streak)
-                if (index == list.lastIndex && right == list.size && list.size >= 20) GameStats.flawlessRound(ctx)
-                Achievements.announce(ctx)
-            }
-            s.revealed = true
-            Sfx.play(ctx, 2)
-            val at = index
-            scope.launch { delay(260); if (index == at) advance() }
-        } else if (!s.onTrack) miss()
+        scoreRight()
+        Sfx.correct(ctx)
+        //listen always moves on, u literaly just heard the word. reading follows the auto next switch
+        if (listen || autoNext) { advance(); return }
+        s.revealed = true
+        Voice.onShow(ctx, s.card)
     }
+
+    //checked as u type. a typo dont kill the streak anymore, only enter can mark a card wrong
+    fun checkTyped() {
+        val s = st ?: return
+        if (s.revealed || listen) return //listen only checks on enter so a typo dosent end ur run
+        if (s.correct) accept()
+    }
+
     fun submit() {
         val s = st ?: return
         when {
             s.revealed -> advance()
-            s.correct -> checkTyped()
-            s.typed.text.isNotBlank() -> { Haptics.wrong(ctx); miss() }
+            s.correct -> accept()
+            s.typed.text.isNotBlank() -> { Haptics.wrong(ctx); miss(); revealAnswer(ctx, s, buzz = false) }
         }
     }
     fun show() { st?.let { if (!it.revealed) { miss(); revealAnswer(ctx, it, buzz = false) } else advance() } }
@@ -1253,13 +1298,25 @@ private fun PracticeSession(deck: Deck, focusOpen: Boolean, onCloseFocus: () -> 
                 Spacer(Modifier.height(16.dp))
                 if (front != null) front() else CardFront(card.front)
                 Spacer(Modifier.height(16.dp))
-                AnswerField(st, keepKeyboard = true, focusRequester = focusReq, bring = bring, onChange = { checkTyped() }, onSubmit = { submit() })
+                AnswerField(st, keepKeyboard = true, focusRequester = focusReq, bring = bring, live = !listen, onChange = { checkTyped() }, onSubmit = { submit() })
                 AnimatedVisibility(st.revealed, enter = fadeIn() + expandVertically()) { RevealBlock(st, showVerdict = false) }
+                if (listen && !st.revealed) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stringResource(R.string.listen_enter_hint), style = MaterialTheme.typography.labelSmall,
+                        color = Ink.Faint, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
             Row(Modifier.followReveal(st.revealed), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (previous != null) GlassIconButton(Ic.chevronLeft, stringResource(R.string.previous_cd), size = 46.dp, onClick = previous)
-                WhitePill(stringResource(if (st.revealed) R.string.practice_next else R.string.practice_show), Modifier.weight(1f)) { show() }
-                GhostPill(stringResource(R.string.practice_skip)) { advance() }
+                if (listen && !st.revealed) {
+                    WhitePill(stringResource(R.string.practice_check), Modifier.weight(1f)) { submit() }
+                    GhostPill(stringResource(R.string.practice_show)) { show() }
+                } else {
+                    WhitePill(stringResource(if (st.revealed) R.string.practice_next else R.string.practice_show), Modifier.weight(1f)) { show() }
+                    GhostPill(stringResource(R.string.practice_skip)) { advance() }
+                }
             }
         }
     }
@@ -1268,12 +1325,17 @@ private fun PracticeSession(deck: Deck, focusOpen: Boolean, onCloseFocus: () -> 
         FocusModal(
             title = deck.name, sub = stringResource(R.string.practice_progress, minOf(index + 1, list.size), list.size),
             onClose = onCloseFocus, onPrevious = previous,
-            card = card, st = st, hint = null,
-            onChange = { checkTyped() }, onSubmit = { submit() }, front = front,
+            card = card, st = st, hint = if (listen && st?.revealed != true) stringResource(R.string.listen_enter_hint) else null,
+            onChange = { checkTyped() }, onSubmit = { submit() }, front = front, live = !listen,
             actions = {
                 if (card != null) {
-                    WhitePill(stringResource(if (st?.revealed == true) R.string.practice_next else R.string.practice_show), Modifier.weight(1f)) { show() }
-                    GhostPill(stringResource(R.string.practice_skip)) { advance() }
+                    if (listen && st?.revealed != true) {
+                        WhitePill(stringResource(R.string.practice_check), Modifier.weight(1f)) { submit() }
+                        GhostPill(stringResource(R.string.practice_show)) { show() }
+                    } else {
+                        WhitePill(stringResource(if (st?.revealed == true) R.string.practice_next else R.string.practice_show), Modifier.weight(1f)) { show() }
+                        GhostPill(stringResource(R.string.practice_skip)) { advance() }
+                    }
                 }
             },
             empty = empty
@@ -1297,10 +1359,10 @@ private fun ChoiceSession(deck: Deck, reverse: Boolean, focusOpen: Boolean, onCl
 
     val all = loaded?.getOrNull().orEmpty()
     //need 4 different answers or theres nothing to pick from
-    val enough = remember(all) { all.map { (if (reverse) it.front else it.meaning).trim().lowercase() }.distinct().size >= 4 }
+    val enough = remember(all) { all.map { (if (reverse) it.front.trim() else Study.safeMeaning(it)).lowercase() }.distinct().size >= 4 }
     val list = if (enough) all else emptyList()
     val card = list.getOrNull(index)
-    val answer = card?.let { (if (reverse) it.front else it.meaning).trim() }
+    val answer = card?.let { if (reverse) it.front.trim() else Study.safeMeaning(it) }
     //same seed so going back shows the same 4
     val options = remember(card?.id, round) { card?.let { Study.choices(list, it, reverse, kotlin.random.Random(it.id.hashCode() + round)) }.orEmpty() }
 
@@ -1374,12 +1436,18 @@ private fun ChoiceCard(card: DeckCard, reverse: Boolean, progress: String, optio
             Kicker(progress)
         }
         Spacer(Modifier.height(16.dp))
+        //question never carries the word or its reading now, that was giving the whole answer away
         if (reverse) Text(
-            card.meaning, style = MaterialTheme.typography.headlineSmall, color = Ink.Text,
+            Study.safeMeaning(card), style = MaterialTheme.typography.headlineSmall, color = Ink.Text,
             textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()
         ) else CardFront(card.front)
         AnimatedVisibility(picked != null, enter = fadeIn() + expandVertically()) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                //its answered now so the real thing can finaly show up
+                if (reverse) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(card.front, style = KanjiStyle.copy(fontSize = 40.sp), color = Ink.Text, textAlign = TextAlign.Center)
+                }
                 if (card.reading.isNotBlank()) {
                     Spacer(Modifier.height(8.dp))
                     Text(card.reading, style = MaterialTheme.typography.titleLarge.merge(JapaneseText), color = Ink.Muted, textAlign = TextAlign.Center)
@@ -1471,8 +1539,11 @@ fun rememberAnswer(card: DeckCard, startTyped: String = "", startRevealed: Boole
 
 fun revealAnswer(ctx: android.content.Context, st: AnswerState, buzz: Boolean = true) {
     if (st.kanaMode) st.typed = TextFieldValue(Romaji.toHiragana(st.typed.text, final = true))
-    if (buzz && st.canType && st.typed.text.isNotBlank() && !st.correct) Haptics.wrong(ctx)
+    val typedSomething = st.canType && st.typed.text.isNotBlank()
+    if (typedSomething && st.correct) Sfx.correct(ctx) //lil chime for getting the reading right in normal review too
+    else if (buzz && typedSomething) Haptics.wrong(ctx)
     st.revealed = true
+    Voice.onShow(ctx, st.card) //says it out loud unless u turned that off
 }
 
 @Composable
@@ -1492,6 +1563,7 @@ private fun AnswerField(
     keepKeyboard: Boolean,
     focusRequester: FocusRequester? = null,
     bring: BringIntoViewRequester? = null,
+    live: Boolean = true, //off means nothing gets judged till enter so a typo costs u nothing
     onChange: () -> Unit = {},
     onSubmit: () -> Unit
 ) {
@@ -1499,7 +1571,8 @@ private fun AnswerField(
     val scope = rememberCoroutineScope()
     val stroke = when {
         st.revealed && st.correct -> Ink.Good.copy(alpha = 0.7f)
-        !st.onTrack -> Ink.Again.copy(alpha = 0.7f)
+        st.revealed && st.canType && st.typed.text.isNotBlank() -> Ink.Again.copy(alpha = 0.7f)
+        live && !st.onTrack -> Ink.Again.copy(alpha = 0.7f)
         else -> Ink.GlassStroke
     }
     BasicTextField(
@@ -1509,7 +1582,7 @@ private fun AnswerField(
             val t = if (st.kanaMode) Romaji.toHiragana(v.text).let { TextFieldValue(it, TextRange(it.length)) } else v
             st.typed = t
             val ok = Romaji.onTrack(t.text, st.card.answers)
-            if (st.onTrack && !ok) Haptics.wrong(ctx)
+            if (live && st.onTrack && !ok) Haptics.wrong(ctx)
             st.onTrack = ok
             onChange()
         },
@@ -1557,12 +1630,17 @@ private fun AnswerField(
 @Composable
 private fun RevealBlock(st: AnswerState, showVerdict: Boolean = true) {
     val card = st.card
+    val ctx = LocalContext.current
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
         Spacer(Modifier.height(18.dp))
         Box(Modifier.fillMaxWidth().height(1.dp).background(Ink.GlassStroke))
         Spacer(Modifier.height(16.dp))
         if (card.reading.isNotBlank()) {
-            Text(card.reading, style = MaterialTheme.typography.headlineMedium.merge(JapaneseText), color = Ink.Text, textAlign = TextAlign.Center)
+            //tap to hear it again
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(card.reading, style = MaterialTheme.typography.headlineMedium.merge(JapaneseText), color = Ink.Text, textAlign = TextAlign.Center)
+                GlassIconButton(Ic.volume, stringResource(R.string.cd_speak), size = 34.dp, iconSize = 17.dp, tint = Ink.Muted) { Voice.sayCard(ctx, card) }
+            }
         }
         if (showVerdict && st.canType && st.typed.text.isNotBlank()) {
             val ok = st.correct
@@ -1700,9 +1778,10 @@ private fun FocusModal(
     onChange: () -> Unit = {},
     actions: @Composable RowScope.() -> Unit,
     empty: @Composable () -> Unit,
-    front: (@Composable () -> Unit)? = null
+    front: (@Composable () -> Unit)? = null,
+    live: Boolean = true
 ) {
-    FocusDialog(onClose) { FocusBody(title, sub, onClose, onPrevious, card, st, hint, onSubmit, onChange, actions, empty, front) }
+    FocusDialog(onClose) { FocusBody(title, sub, onClose, onPrevious, card, st, hint, onSubmit, onChange, actions, empty, front, live) }
 }
 
 @Composable
@@ -1782,7 +1861,8 @@ fun FocusBody(
     onChange: () -> Unit,
     actions: @Composable RowScope.() -> Unit,
     empty: @Composable () -> Unit,
-    front: (@Composable () -> Unit)? = null
+    front: (@Composable () -> Unit)? = null,
+    live: Boolean = true
 ) {
     val req = remember { FocusRequester() }
     val ime = WindowInsets.isImeVisible
@@ -1801,7 +1881,7 @@ fun FocusBody(
                     RevealBlock(st)
                 }
             }
-            AnswerField(st, keepKeyboard = true, focusRequester = req, onChange = onChange, onSubmit = onSubmit)
+            AnswerField(st, keepKeyboard = true, focusRequester = req, live = live, onChange = onChange, onSubmit = onSubmit)
             if (hint != null) Text(hint, style = MaterialTheme.typography.labelSmall, color = Ink.Faint, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         }
     }
@@ -2101,22 +2181,20 @@ fun WordsScreen(tick: Int, snackbar: SnackbarHostState) {
             }
         }
 
+        //dictionary used to be a 5th tab in here, it got its own screen
         PillTabs(
             options = listOf(
                 stringResource(R.string.tab_accepted, accepted.size),
                 stringResource(R.string.tab_decks, imported.size),
                 stringResource(R.string.tab_rejected, rejected.size),
-                stringResource(R.string.tab_mined_n, mined.size),
-                stringResource(R.string.tab_dictionary)
+                stringResource(R.string.tab_mined_n, mined.size)
             ),
-            selected = mode,
+            selected = mode.coerceIn(0, 3),
             onSelect = { mode = it; query = "" },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
         )
 
-        if (mode == 4) {
-            DictionaryPane(tick, snackbar, deckKeys)
-        } else if (mode == 1) {
+        if (mode == 1) {
             DecksPane(imported)
         } else {
         if (source.isNotEmpty()) {
@@ -2274,7 +2352,7 @@ private fun DeckCardRow(c: DeckCard) {
 }
 
 @Composable
-private fun SearchField(value: String, onChange: (String) -> Unit, modifier: Modifier, hint: Int = R.string.search_hint, trailing: (@Composable () -> Unit)? = null) {
+fun SearchField(value: String, onChange: (String) -> Unit, modifier: Modifier, hint: Int = R.string.search_hint, trailing: (@Composable () -> Unit)? = null) {
     Row(
         modifier
             .fillMaxWidth()
@@ -2332,53 +2410,6 @@ fun WordRow(w: Word, highlight: Boolean, actionIcon: ImageVector, actionLabel: S
 
 
 @Composable
-private fun DictionaryPane(tick: Int, snackbar: SnackbarHostState, deckKeys: Set<String>) {
-    val ctx = LocalContext.current
-    var query by rememberSaveable { mutableStateOf("") }
-    var results by remember { mutableStateOf<List<Word>>(emptyList()) }
-    var counts by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-    var open by remember { mutableStateOf<Word?>(null) }
-
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        counts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { Dictionary.counts(ctx) }.getOrNull() }
-    }
-    androidx.compose.runtime.LaunchedEffect(query) {
-        if (query.isBlank()) { results = emptyList(); return@LaunchedEffect }
-        kotlinx.coroutines.delay(220)
-        results = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            runCatching { Dictionary.search(ctx, query) }.getOrDefault(emptyList())
-        }
-    }
-
-    var drawing by remember { mutableStateOf(false) }
-    SearchField(query, { query = it }, Modifier.padding(horizontal = 16.dp, vertical = 12.dp), hint = R.string.dict_search_hint) {
-        GlassIconButton(Ic.pen, stringResource(R.string.draw_cd), size = 30.dp, iconSize = 16.dp, tint = Ink.Muted) { drawing = true }
-    }
-    if (drawing) DrawSheet(onPick = { query += it }, onDismiss = { drawing = false })
-    if (query.isBlank()) {
-        GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            EmptyState(
-                "辞",
-                counts?.let { stringResource(R.string.dict_empty_title, it.first, it.second) } ?: stringResource(R.string.dict_loading),
-                stringResource(R.string.dict_empty_body)
-            )
-        }
-    } else if (results.isEmpty()) {
-        GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            EmptyState("無", stringResource(R.string.dict_none_title), stringResource(R.string.dict_none_body))
-        }
-    } else {
-        GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), padding = PaddingValues(8.dp)) {
-            LazyColumn(contentPadding = PaddingValues(bottom = 100.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(results, key = { it.id }) { w -> DictRow(w, w.key in deckKeys) { open = w } }
-            }
-        }
-    }
-
-    open?.let { w -> WordSheet(w, w.key in deckKeys, snackbar) { open = null } }
-}
-
-@Composable
 fun DictRow(w: Word, inDeck: Boolean, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Ink.Glass)
@@ -2396,32 +2427,6 @@ fun DictRow(w: Word, inDeck: Boolean, onClick: () -> Unit) {
     }
 }
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-@Composable
-private fun WordSheet(w: Word, inDeck: Boolean, snackbar: SnackbarHostState, onDismiss: () -> Unit) {
-    val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val speaker = remember { Speaker(ctx) }
-    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { speaker.shutdown() } }
-    androidx.compose.material3.ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Ink.BgMid, contentColor = Ink.Text
-    ) {
-        WordDetail(w, inDeck,
-            onSpeak = { speaker.speak(w.reading.ifBlank { w.word }) },
-            onAdd = {
-                AcceptedStore.add(ctx, w); RejectedStore.remove(ctx, w.key); DailyWordManager.refresh(ctx)
-                onDismiss(); scope.launch { snackbar.showSnackbar(ctx.getString(R.string.snack_accepted)) }
-            },
-            onMine = {
-                val n = MinedStore.add(ctx, listOf(w.copy(source = "mined")))
-                DailyWordManager.refresh(ctx); onDismiss()
-                scope.launch { snackbar.showSnackbar(ctx.getString(if (n > 0) R.string.snack_word_added else R.string.snack_word_exists, w.word)) }
-            })
-    }
-}
-
 //cc by needs credit so every sentence links back to its page
 @Composable
 private fun TatoebaLink(id: String) {
@@ -2436,7 +2441,16 @@ private fun TatoebaLink(id: String) {
 
 
 @Composable
-fun WordDetail(w: Word, inDeck: Boolean, onSpeak: () -> Unit, onAdd: () -> Unit, onMine: () -> Unit) {
+fun WordDetail(
+    w: Word,
+    inDeck: Boolean,
+    onSpeak: () -> Unit,
+    onAdd: () -> Unit,
+    onMine: () -> Unit,
+    parts: List<Word> = emptyList(),
+    onPart: (Word) -> Unit = {}
+) {
+    val ctx = LocalContext.current
     Column(Modifier.fillMaxWidth().padding(horizontal = 22.dp).padding(bottom = 28.dp).navigationBarsPadding()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             KanjiTile(w.word, size = 92.dp)
@@ -2445,7 +2459,12 @@ fun WordDetail(w: Word, inDeck: Boolean, onSpeak: () -> Unit, onAdd: () -> Unit,
                 Text(w.reading, style = MaterialTheme.typography.titleLarge.merge(JapaneseText), color = Ink.Muted)
                 Text(w.meaning, style = MaterialTheme.typography.titleMedium, color = Ink.Text, maxLines = 4, overflow = TextOverflow.Ellipsis)
             }
-            GlassIconButton(Ic.volume, stringResource(R.string.cd_speak), size = 36.dp, onClick = onSpeak)
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                GlassIconButton(Ic.volume, stringResource(R.string.cd_speak), size = 36.dp, onClick = onSpeak)
+                GlassIconButton(Ic.share, stringResource(R.string.copy), size = 36.dp, iconSize = 17.dp, tint = Ink.Muted) {
+                    copyToClipboard(ctx, listOf(w.word, w.reading).filter { it.isNotBlank() }.joinToString("  "))
+                }
+            }
         }
         if (w.info.isNotBlank()) {
             Spacer(Modifier.height(12.dp))
@@ -2462,6 +2481,8 @@ fun WordDetail(w: Word, inDeck: Boolean, onSpeak: () -> Unit, onAdd: () -> Unit,
             if (w.exampleMeaning.isNotBlank()) Text(w.exampleMeaning, style = MaterialTheme.typography.bodyMedium, color = Ink.Muted)
             TatoebaLink(w.exampleId)
         }
+        //what each kanji in the word means on its own
+        KanjiParts(parts, onPart)
         Spacer(Modifier.height(20.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             WhitePill(
@@ -2486,6 +2507,7 @@ fun SettingsScreen(tick: Int, snackbar: SnackbarHostState) {
     var confirm by remember { mutableStateOf<String?>(null) }
     var goal by remember { mutableIntStateOf(Prefs.dailyGoal(ctx)) }
     var sfx by remember { mutableStateOf(Prefs.sfx(ctx)) }
+    var speak by remember { mutableStateOf(Prefs.speakOnShow(ctx)) }
     var vibrate by remember { mutableStateOf(Prefs.vibrate(ctx)) }
     var widgetDark by remember { mutableStateOf(Prefs.widgetDark(ctx)) }
     var widgetPicker by remember { mutableStateOf(false) }
@@ -2549,6 +2571,10 @@ fun SettingsScreen(tick: Int, snackbar: SnackbarHostState) {
                 Divider()
                 ToggleRow(stringResource(R.string.sfx_label), stringResource(R.string.sfx_sub), sfx) {
                     sfx = it; Prefs.setSfx(ctx, it); if (it) Sfx.play(ctx, 2)
+                }
+                Divider()
+                ToggleRow(stringResource(R.string.speak_title), stringResource(R.string.speak_sub), speak) {
+                    speak = it; Prefs.setSpeakOnShow(ctx, it)
                 }
                 Divider()
                 ToggleRow(stringResource(R.string.vibrate_title), stringResource(R.string.vibrate_sub), vibrate) {
@@ -2791,36 +2817,77 @@ private fun TimeDialog(initial: Int, onDismiss: () -> Unit, onPick: (Int) -> Uni
 }
 
 
-//little previews of each theme, tap one and the whole app switches
+//themes sit in a grid now n split into dark n light, 26 in one row was unusable
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ThemePicker() {
     val ctx = LocalContext.current
-    LazyRow(contentPadding = PaddingValues(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        items(Palettes.all, key = { it.id }) { p ->
-            val on = Ink.palette.id == p.id
-            Column(
-                Modifier
-                    .width(86.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .border(if (on) 2.dp else 1.dp, if (on) Ink.Pill else Ink.GlassStroke, RoundedCornerShape(16.dp))
-                    .clickable { Ink.palette = p; Prefs.setTheme(ctx, p.id) }
-                    .padding(6.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(11.dp))
-                        .background(Brush.verticalGradient(listOf(p.bgTop, p.bgMid, p.bgBottom))),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("字", style = KanjiStyle.copy(fontSize = 26.sp), color = p.text)
-                    Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                        listOf(p.again, p.hard, p.good, p.easy).forEach { Box(Modifier.size(6.dp).clip(CircleShape).background(it)) }
-                    }
+    val current = Ink.palette
+    Column(Modifier.padding(horizontal = 14.dp).padding(top = 12.dp, bottom = 14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.theme_current, current.name),
+                style = MaterialTheme.typography.bodyMedium, color = Ink.Text, modifier = Modifier.weight(1f)
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(current.again, current.hard, current.good, current.easy, current.flame).forEach {
+                    Box(Modifier.size(10.dp).clip(CircleShape).background(it))
                 }
-                Spacer(Modifier.height(6.dp))
-                Text(p.name, style = MaterialTheme.typography.labelMedium, color = if (on) Ink.Text else Ink.Muted)
             }
         }
+        listOf(R.string.theme_dark_group to Palettes.darks, R.string.theme_light_group to Palettes.lights).forEach { (title, list) ->
+            Spacer(Modifier.height(14.dp))
+            Kicker(stringResource(title), Modifier.padding(start = 2.dp, bottom = 8.dp))
+            FlowRow(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                list.forEach { p ->
+                    ThemeSwatch(p, current.id == p.id) { Ink.palette = p; Prefs.setTheme(ctx, p.id) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeSwatch(p: Palette, on: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        Modifier
+            .width(82.dp)
+            .clip(shape)
+            .background(if (on) Ink.GlassHigh else Color.Transparent)
+            .border(if (on) 2.dp else 1.dp, if (on) Ink.Pill else Ink.GlassStroke, shape)
+            .clickable(onClick = onClick)
+            .padding(5.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            Modifier.fillMaxWidth().height(62.dp).clip(RoundedCornerShape(12.dp))
+                .background(Brush.verticalGradient(listOf(p.bgTop, p.bgMid, p.bgBottom))),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("字", style = KanjiStyle.copy(fontSize = 26.sp), color = p.text)
+            //the pill colour is what every button looks like, u wanna see that before picking
+            Box(
+                Modifier.align(Alignment.TopEnd).padding(5.dp).size(12.dp)
+                    .clip(RoundedCornerShape(4.dp)).background(p.pill)
+            )
+            Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 5.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                listOf(p.again, p.hard, p.good, p.easy).forEach { Box(Modifier.size(5.dp).clip(CircleShape).background(it)) }
+            }
+            if (on) Box(
+                Modifier.align(Alignment.TopStart).padding(4.dp).size(16.dp).clip(CircleShape).background(Ink.Pill),
+                contentAlignment = Alignment.Center
+            ) { Icon(Ic.check, null, Modifier.size(11.dp), tint = Ink.OnWhite) }
+        }
+        Spacer(Modifier.height(5.dp))
+        Text(
+            p.name, style = MaterialTheme.typography.labelMedium,
+            color = if (on) Ink.Text else Ink.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -3025,7 +3092,7 @@ private fun Field(
 //write a kanji with ur finger, tap what it guessed and it goes in the search box
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DrawSheet(onPick: (String) -> Unit, onDismiss: () -> Unit) {
+fun DrawSheet(onPick: (String) -> Unit, onDismiss: () -> Unit) {
     var status by remember { mutableStateOf("checking") }
     var attempt by remember { mutableIntStateOf(0) }
     LaunchedEffect(attempt) {
@@ -3152,4 +3219,453 @@ fun DrawBody(
         }
         Text(stringResource(R.string.draw_privacy), style = MaterialTheme.typography.labelSmall, color = Ink.Faint, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
     }
+}
+
+
+//==================== dictionary tab ====================
+
+//the dictionary got pulled out of the words screen n given its own tab
+@Composable
+fun DictionaryScreen(tick: Int, snackbar: SnackbarHostState) {
+    val ctx = LocalContext.current
+    var query by rememberSaveable { mutableStateOf("") }
+    var results by remember { mutableStateOf<List<Word>>(emptyList()) }
+    var searching by remember { mutableStateOf(false) }
+    var drawing by remember { mutableStateOf(false) }
+    var scanning by remember { mutableStateOf(false) }
+    //tapping a kanji inside a word pushes it on here, back pops one off
+    val stack = remember { mutableStateListOf<Word>() }
+
+    val counts = remember { runCatching { Dictionary.counts(ctx) }.getOrDefault(0 to 0) }
+    val deckKeys = remember(tick) { AcceptedStore.all(ctx).map { it.key }.toSet() }
+
+    LaunchedEffect(query) {
+        val q = query.trim()
+        if (q.isBlank()) { results = emptyList(); searching = false; return@LaunchedEffect }
+        searching = true
+        delay(220)
+        results = withContext(Dispatchers.IO) { runCatching { Dictionary.search(ctx, q) }.getOrDefault(emptyList()) }
+        searching = false
+    }
+
+    Column(Modifier.fillMaxSize().imePadding()) {
+        ScreenHeader(
+            kicker = stringResource(R.string.dict_kicker),
+            title = stringResource(R.string.dict_title),
+            subtitle = stringResource(R.string.dict_sub, counts.first, counts.second)
+        )
+
+        SearchField(query, { query = it }, Modifier.padding(horizontal = 16.dp), hint = R.string.dict_search_hint) {
+            if (query.isNotEmpty()) {
+                GlassIconButton(Ic.close, stringResource(R.string.dict_clear_recent), size = 30.dp, iconSize = 15.dp, tint = Ink.Muted) { query = "" }
+            }
+        }
+
+        //these 2 used to be one unlabelled pen icon shoved in the search box, nobody knew wtf it did
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            GhostPill(stringResource(R.string.dict_draw), Modifier.weight(1f), icon = Ic.pen) { drawing = true }
+            GhostPill(stringResource(R.string.dict_scan), Modifier.weight(1f), icon = Ic.camera) { scanning = true }
+        }
+
+        when {
+            query.isBlank() -> GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                EmptyState("辞", stringResource(R.string.dict_empty_title, counts.first, counts.second), stringResource(R.string.dict_empty_body))
+            }
+            searching && results.isEmpty() -> GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Text(stringResource(R.string.dict_loading), color = Ink.Muted)
+            }
+            results.isEmpty() -> GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                EmptyState("無", stringResource(R.string.dict_none_title), stringResource(R.string.dict_none_body))
+            }
+            else -> GlassCard(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp).weight(1f, fill = false),
+                padding = PaddingValues(8.dp)
+            ) {
+                LazyColumn(contentPadding = PaddingValues(bottom = 110.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(results, key = { it.id }) { w -> DictRow(w, w.key in deckKeys) { stack.add(w) } }
+                }
+            }
+        }
+    }
+
+    if (drawing) DrawSheet(onPick = { query += it }, onDismiss = { drawing = false })
+    if (scanning) ScanSheet(snackbar, onDismiss = { scanning = false }, onOpen = { stack.add(it) })
+
+    stack.lastOrNull()?.let { w ->
+        LookupSheet(
+            word = w, inDeck = w.key in deckKeys, snackbar = snackbar,
+            onOpen = { stack.add(it) },
+            onDismiss = { if (stack.isNotEmpty()) stack.removeAt(stack.lastIndex) }
+        )
+    }
+}
+
+//word sheet, now with every kanji broken out under it
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LookupSheet(
+    word: Word,
+    inDeck: Boolean,
+    snackbar: SnackbarHostState,
+    onOpen: (Word) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var parts by remember(word.id) { mutableStateOf<List<Word>>(emptyList()) }
+    LaunchedEffect(word.id) {
+        parts = withContext(Dispatchers.IO) {
+            //a 1 kanji word is already the whole entry, nothing to break down there
+            runCatching { Dictionary.breakdown(ctx, word.word) }.getOrDefault(emptyList())
+                .filter { it.word != word.word }
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Ink.BgMid, contentColor = Ink.Text
+    ) {
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            WordDetail(
+                word, inDeck,
+                onSpeak = { Voice.say(ctx, word.reading.ifBlank { word.word }) },
+                onAdd = {
+                    AcceptedStore.add(ctx, word); RejectedStore.remove(ctx, word.key); DailyWordManager.refresh(ctx)
+                    onDismiss(); scope.launch { snackbar.showSnackbar(ctx.getString(R.string.snack_accepted)) }
+                },
+                onMine = {
+                    val n = MinedStore.add(ctx, listOf(word.copy(source = "mined")))
+                    DailyWordManager.refresh(ctx)
+                    scope.launch { snackbar.showSnackbar(ctx.getString(if (n > 0) R.string.snack_word_added else R.string.snack_word_exists, word.word)) }
+                },
+                parts = parts,
+                onPart = onOpen
+            )
+        }
+    }
+}
+
+//tap any of these n it opens that kanji on its own
+@Composable
+fun KanjiParts(parts: List<Word>, onPick: (Word) -> Unit) {
+    if (parts.isEmpty()) return
+    Spacer(Modifier.height(18.dp))
+    Kicker(stringResource(R.string.kanji_breakdown))
+    Spacer(Modifier.height(3.dp))
+    Text(stringResource(R.string.kanji_breakdown_sub), style = MaterialTheme.typography.labelSmall, color = Ink.Faint)
+    Spacer(Modifier.height(8.dp))
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        parts.forEach { k ->
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Ink.Glass)
+                    .clickable { onPick(k) }.padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                KanjiTile(k.word, size = 46.dp)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(k.meaning, style = MaterialTheme.typography.bodyLarge, color = Ink.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    if (k.info.isNotBlank()) {
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            k.info, style = MaterialTheme.typography.labelSmall.merge(JapaneseText), color = Ink.Muted,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                Icon(Ic.chevronRight, null, Modifier.size(16.dp), tint = Ink.Faint)
+            }
+        }
+    }
+}
+
+//==================== text extractor ====================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ScanSheet(snackbar: SnackbarHostState, onDismiss: () -> Unit, onOpen: (Word) -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Ink.BgMid, contentColor = Ink.Text
+    ) {
+        ScanBody(snackbar, onDismiss, onOpen)
+    }
+}
+
+@Composable
+private fun ScanBody(snackbar: SnackbarHostState, onClose: () -> Unit, onOpen: (Word) -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var shot by remember { mutableStateOf<Ocr.Shot?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var note by remember { mutableStateOf<String?>(null) }
+    var granted by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
+    }
+    var askCamera by remember { mutableStateOf(false) }
+
+    DisposableEffect(Unit) { onDispose { Ocr.close() } }
+
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        granted = ok
+        if (!ok) note = ctx.getString(R.string.scan_camera_denied)
+    }
+
+    //live frames land here, the first one with actual japanese on it freezes the view
+    fun offer(bitmap: Bitmap, fromCamera: Boolean) {
+        if (busy || shot != null) return
+        busy = true
+        note = null
+        scope.launch {
+            val lines = runCatching { Ocr.read(ctx, bitmap) }.getOrDefault(emptyList())
+            busy = false
+            when {
+                lines.isNotEmpty() && (!fromCamera || Ocr.enough(lines)) -> shot = Ocr.Shot(bitmap, lines)
+                fromCamera -> Unit //keep looking, next frame might be less blurry
+                else -> note = ctx.getString(R.string.scan_no_text)
+            }
+        }
+    }
+
+    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        busy = true
+        note = null
+        scope.launch {
+            val bmp = withContext(Dispatchers.IO) { runCatching { Cam.load(ctx, uri) }.getOrNull() }
+            busy = false
+            if (bmp == null) note = ctx.getString(R.string.scan_no_text) else offer(bmp, fromCamera = false)
+        }
+    }
+
+    LaunchedEffect(Unit) { if (!granted) askCamera = true }
+
+    Column(
+        Modifier.padding(horizontal = 18.dp).padding(bottom = 20.dp).navigationBarsPadding(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.scan_title), style = MaterialTheme.typography.headlineSmall, color = Ink.Text)
+                Text(stringResource(R.string.scan_sub), style = MaterialTheme.typography.labelMedium, color = Ink.Muted)
+            }
+            GlassIconButton(Ic.close, stringResource(R.string.focus_close), size = 40.dp, onClick = onClose)
+        }
+
+        val frozen = shot
+        Box(
+            Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(18.dp))
+                .background(Color.Black).border(1.dp, Ink.GlassStroke, RoundedCornerShape(18.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            when {
+                frozen != null -> Image(
+                    bitmap = frozen.image.asImageBitmap(), contentDescription = null,
+                    modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit
+                )
+                granted -> CameraFinder { bmp -> offer(bmp, fromCamera = true) }
+                else -> Text(
+                    stringResource(R.string.scan_need_camera), style = MaterialTheme.typography.bodyMedium,
+                    color = Ink.Muted, textAlign = TextAlign.Center, modifier = Modifier.padding(24.dp)
+                )
+            }
+            if (busy) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = Ink.Pill)
+                    Spacer(Modifier.height(10.dp))
+                    Text(stringResource(R.string.scan_reading), style = MaterialTheme.typography.labelMedium, color = Color.White)
+                }
+            }
+            if (frozen == null && granted && !busy) Text(
+                stringResource(R.string.scan_looking), style = MaterialTheme.typography.labelMedium,
+                color = Color.White, modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp)
+            )
+        }
+
+        note?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = Ink.Again) }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (frozen != null) {
+                WhitePill(stringResource(R.string.scan_retake), Modifier.weight(1f), icon = Ic.refresh) { shot = null; note = null }
+            } else if (!granted) {
+                WhitePill(stringResource(R.string.scan_title), Modifier.weight(1f), icon = Ic.camera) { permission.launch(Manifest.permission.CAMERA) }
+            } else {
+                Spacer(Modifier.weight(1f))
+            }
+            GhostPill(stringResource(R.string.scan_pick_image), icon = Ic.upload) { pickImage.launch("image/*") }
+        }
+
+        if (frozen != null) ScanResult(frozen, snackbar, onOpen)
+    }
+
+    if (askCamera) {
+        AlertDialog(
+            onDismissRequest = { askCamera = false },
+            containerColor = Ink.BgMid,
+            title = { Text(stringResource(R.string.scan_title)) },
+            text = { Text(stringResource(R.string.scan_need_camera), color = Ink.Muted) },
+            confirmButton = {
+                TextButton(onClick = { askCamera = false; permission.launch(Manifest.permission.CAMERA) }) {
+                    Text(stringResource(R.string.continue_btn), color = Ink.Text)
+                }
+            },
+            dismissButton = { TextButton(onClick = { askCamera = false }) { Text(stringResource(R.string.cancel), color = Ink.Muted) } }
+        )
+    }
+}
+
+//every word of every line, each underlined in its own colour so u can tell where one ends
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ScanResult(shot: Ocr.Shot, snackbar: SnackbarHostState, onOpen: (Word) -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val words = remember(shot) { Ocr.words(shot.lines) }
+    var opening by remember { mutableStateOf(false) }
+
+    fun open(token: Jp.Token) {
+        if (opening) return
+        opening = true
+        scope.launch {
+            val hit = withContext(Dispatchers.IO) {
+                Dictionary.allExact(ctx, token.lookup).firstOrNull()
+                    ?: Dictionary.search(ctx, token.lookup).firstOrNull()
+                    ?: token.text.firstOrNull { Jp.isKanji(it) }?.let { Dictionary.kanji(ctx, it.toString()) }
+            }
+            opening = false
+            if (hit != null) onOpen(hit) else snackbar.showSnackbar(ctx.getString(R.string.scan_unknown))
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.scan_found, words.size),
+                style = MaterialTheme.typography.labelMedium, color = Ink.Muted, modifier = Modifier.weight(1f)
+            )
+            GhostPill(stringResource(R.string.scan_copy_all), icon = Ic.share) { copyToClipboard(ctx, Ocr.plain(shot.lines)) }
+        }
+        Text(stringResource(R.string.scan_tap_hint), style = MaterialTheme.typography.labelSmall, color = Ink.Faint)
+
+        GlassCard(Modifier.fillMaxWidth().heightIn(max = 280.dp), padding = PaddingValues(12.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                shot.lines.forEachIndexed { li, line ->
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            line.tokens.forEachIndexed { i, t -> WordChip(t, i + li) { open(t) } }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            GlassIconButton(Ic.share, stringResource(R.string.copy), size = 26.dp, iconSize = 13.dp, tint = Ink.Faint) {
+                                copyToClipboard(ctx, line.text)
+                            }
+                            GlassIconButton(Ic.volume, stringResource(R.string.cd_speak), size = 26.dp, iconSize = 13.dp, tint = Ink.Faint) {
+                                Voice.say(ctx, line.text)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (words.isNotEmpty()) WhitePill(stringResource(R.string.scan_mine_all), Modifier.fillMaxWidth(), icon = Ic.book) {
+            scope.launch {
+                val added = withContext(Dispatchers.IO) {
+                    val found = words.mapNotNull { t -> Dictionary.allExact(ctx, t.lookup).firstOrNull() }
+                    MinedStore.add(ctx, found)
+                }
+                DailyWordManager.refresh(ctx)
+                snackbar.showSnackbar(ctx.getString(R.string.scan_mined_n, added))
+            }
+        }
+    }
+}
+
+//colours cycle so 2 words next to eachother never blur into one
+private val UNDERLINES = listOf(
+    Color(0xFF5B9BD5), Color(0xFF3FA877), Color(0xFFE0A33D), Color(0xFFCB6FD6), Color(0xFFE06A64), Color(0xFF3FBFC0)
+)
+
+@Composable
+private fun WordChip(t: Jp.Token, slot: Int, onClick: () -> Unit) {
+    //punctuation n latin runs are just text, theres nothing to look up
+    if (!Jp.hasJapanese(t.text)) {
+        Text(t.text, style = MaterialTheme.typography.titleMedium.merge(JapaneseText), color = Ink.Faint)
+        return
+    }
+    val tint = if (t.known) UNDERLINES[slot.mod(UNDERLINES.size)] else Ink.Faint
+    Column(
+        Modifier.clip(RoundedCornerShape(6.dp)).clickable(enabled = t.known, onClick = onClick).padding(horizontal = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            t.text, style = MaterialTheme.typography.titleMedium.merge(JapaneseText),
+            color = if (t.known) Ink.Text else Ink.Muted
+        )
+        Spacer(Modifier.height(3.dp))
+        Box(Modifier.fillMaxWidth().height(if (t.known) 3.dp else 1.dp).clip(CircleShape).background(tint))
+    }
+}
+
+//live preview that throws a frame at the caller abt twice a second
+@Composable
+private fun CameraFinder(onFrame: (Bitmap) -> Unit) {
+    val ctx = LocalContext.current
+    val owner = LocalLifecycleOwner.current
+    val handler = rememberUpdatedState(onFrame)
+    var failed by remember { mutableStateOf(false) }
+    val view = remember { PreviewView(ctx).apply { scaleType = PreviewView.ScaleType.FIT_CENTER } }
+    val executor = remember { java.util.concurrent.Executors.newSingleThreadExecutor() }
+    val lastSent = remember { java.util.concurrent.atomic.AtomicLong(0L) }
+    val bound = remember { arrayOfNulls<ProcessCameraProvider>(1) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            //unbind or the camera stays on n the phone gets hot as hell
+            runCatching { bound[0]?.unbindAll() }
+            bound[0] = null
+            executor.shutdown()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val provider = runCatching { Cam.provider(ctx) }.getOrNull()
+        if (provider == null) { failed = true; return@LaunchedEffect }
+        val preview = Preview.Builder().build().also { it.setSurfaceProvider(view.surfaceProvider) }
+        val analysis = ImageAnalysis.Builder()
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            //rgba turns into a bitmap straight away, no yuv maths to screw up
+            .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+            //default analysis size is like 640x480, way too small to read kanji off
+            .setResolutionSelector(
+                ResolutionSelector.Builder()
+                    .setResolutionStrategy(ResolutionStrategy(Size(1280, 960), ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER))
+                    .build()
+            )
+            .build()
+        analysis.setAnalyzer(executor) { proxy: ImageProxy ->
+            val now = System.currentTimeMillis()
+            val due = now - lastSent.get() > 500L
+            val bmp = if (due) runCatching { Cam.upright(proxy) }.getOrNull() else null
+            proxy.close()
+            if (bmp != null) {
+                lastSent.set(now)
+                view.post { handler.value(bmp) }
+            }
+        }
+        runCatching {
+            provider.unbindAll()
+            provider.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
+            bound[0] = provider
+        }.onFailure { failed = true }
+    }
+
+    if (failed) Text(
+        stringResource(R.string.scan_camera_failed), style = MaterialTheme.typography.bodyMedium,
+        color = Ink.Again, textAlign = TextAlign.Center, modifier = Modifier.padding(24.dp)
+    ) else AndroidView({ view }, Modifier.fillMaxSize())
 }

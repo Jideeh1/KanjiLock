@@ -13,4 +13,12 @@
 -keep class com.google.android.gms.internal.mlkit_vision_digital_ink.** { *; }
 -keep class com.google.android.gms.internal.mlkit_vision_digital_ink_common.** { *; }
 -keep class com.google.android.gms.internal.mlkit_common.** { *; }
+#same deal for the text scanner, r8 eats the ocr internals and then scanning just dies in release
+-keep class com.google.android.gms.internal.mlkit_vision_text_common.** { *; }
+-keep class com.google.android.gms.internal.mlkit_vision_text_bundled_common.** { *; }
+-keep class com.google.android.gms.internal.mlkit_vision_text_bundled_japanese.** { *; }
+-dontwarn com.google.android.gms.internal.mlkit_vision_text_**
+#camerax builds its config classes by reflection, dont let r8 rename em
+-keep class androidx.camera.** { *; }
+-dontwarn androidx.camera.**
 -keepattributes Signature, *Annotation*, InnerClasses, EnclosingMethod

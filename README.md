@@ -40,8 +40,9 @@ made it cuz i kept forgeting to study and i look at my phone like 200 times a da
 <b>decks</b> · anki, kotoba and ankidroid in, .apkg out<br><br>
 <b>progress</b> · streaks, flame calendar, stats, achievements<br><br>
 <b>widgets</b> · word card, kanji tile, streak, cards due<br><br>
-<b>themes</b> · 11 of them, 9 dark and 2 light<br><br>
-<b>dictionary</b> · 218k words, fully offline, draw a kanji to search
+<b>themes</b> · 26 of them, 18 dark and 8 light<br><br>
+<b>dictionary</b> · its own tab, 218k words, fully offline, draw a kanji to search<br><br>
+<b>scan text</b> · point the camera at japanese, tap any word for its meaning
 
 </td>
 <td width="45%" valign="middle" align="center">
