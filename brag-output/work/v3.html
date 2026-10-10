@@ -1,0 +1,422 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Inter;src:url(inter.ttf);font-weight:100 900}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:#000}
+body{font-family:Inter,'Noto Sans CJK JP',sans-serif;color:#EDF3F3;-webkit-font-smoothing:antialiased}
+.jp{font-family:'Noto Sans CJK JP',Inter,sans-serif}
+#world{position:absolute;inset:0;overflow:hidden}
+.shot{position:absolute;inset:0;overflow:hidden;display:none}
+.full{position:absolute;inset:0}
+.kt{position:absolute;font-weight:900;text-transform:uppercase;letter-spacing:-5px;line-height:.86;white-space:nowrap;will-change:transform}
+.outl{color:transparent;-webkit-text-stroke:3px currentColor}
+.marq{position:absolute;left:0;white-space:nowrap;font-weight:900;text-transform:uppercase;letter-spacing:-3px}
+/* phone */
+.rig{position:absolute;width:440px;height:910px;transform-style:preserve-3d}
+.slab{position:absolute;inset:0;border-radius:64px;background:linear-gradient(90deg,#3A4A4D,#141c1e 40%,#2C3A3D)}
+.phone{position:absolute;inset:0;border-radius:64px;background:#0A1214;padding:12px;box-shadow:0 60px 120px rgba(0,0,0,.6),0 0 0 2px #2a3a3d inset}
+.screen{position:relative;width:100%;height:100%;border-radius:52px;overflow:hidden;background:linear-gradient(180deg,#172629 0%,#1C2F33 60%,#253B3F 100%);padding:58px 26px 0}
+.cam{position:absolute;top:18px;left:50%;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:#050a0b;z-index:5}
+.glint{position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.18) 47%,rgba(255,255,255,.05) 53%,transparent 62%);background-size:300% 100%;z-index:60}
+.kick{font-size:12px;letter-spacing:1.6px;font-weight:600;color:#93A6A8;text-transform:uppercase}
+.ttl{font-size:44px;font-weight:500;margin-top:4px;letter-spacing:-.5px}
+.sub{font-size:17px;color:#93A6A8;margin-top:4px}
+.card{background:rgba(42,66,71,.55);border-radius:22px;border:1px solid rgba(255,255,255,.06)}
+.nav{position:absolute;bottom:34px;left:50%;transform:translateX(-50%);display:flex;gap:10px;background:rgba(10,18,20,.55);padding:8px;border-radius:22px}
+.nav i{width:50px;height:50px;border-radius:15px;background:rgba(42,66,71,.8);display:block}
+.nav i.on{background:#EDF3F3}
+.btnc{width:68px;height:68px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.lbl{font-size:15px;color:#C9D6D7;margin-top:8px;text-align:center}
+.pill{background:#EDF3F3;color:#111D20;border-radius:14px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.touch{position:absolute;width:90px;height:90px;margin:-45px 0 0 -45px;border-radius:50%;background:rgba(255,255,255,.35);border:3px solid rgba(255,255,255,.75);opacity:0;z-index:50}
+.row{display:flex;align-items:center;gap:14px;padding:14px;margin-top:10px}
+.kbox{width:62px;height:62px;border-radius:14px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none}
+.tag{font-size:11px;letter-spacing:1.4px;color:#93A6A8;font-weight:600}
+.mean{font-size:17px;margin-top:3px;line-height:1.25}
+.wid{position:absolute;background:rgba(24,38,41,.97);border-radius:36px;box-shadow:0 40px 80px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.08)}
+.game{position:absolute;width:560px;height:400px;border-radius:36px;padding:38px;background:#1C2F33;border:1px solid rgba(255,255,255,.1);box-shadow:0 40px 80px rgba(0,0,0,.45)}
+.game .gt{font-size:42px;font-weight:800;margin-top:6px}
+.opt{display:inline-block;padding:12px 20px;border-radius:14px;background:rgba(255,255,255,.08);font-size:22px;margin:0 10px 10px 0}
+.burst{position:absolute;width:0;height:0;z-index:70}
+.burst i{position:absolute;display:block;border-radius:50%}
+#grain{position:absolute;inset:0;pointer-events:none;opacity:.07;mix-blend-mode:overlay}
+#flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute">
+ <defs id="defs">
+  <filter id="rgb" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+   <feColorMatrix in="SourceGraphic" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="r"/>
+   <feOffset in="r" id="rdx" dx="0" dy="0" result="r2"/>
+   <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="g"/>
+   <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="b"/>
+   <feOffset in="b" id="bdx" dx="0" dy="0" result="b2"/>
+   <feBlend in="r2" in2="g" mode="screen" result="rg"/><feBlend in="rg" in2="b2" mode="screen"/>
+  </filter>
+ </defs>
+</svg>
+<div id="world"></div>
+<svg id="grain" viewBox="0 0 1920 1080"><filter id="gn"><feTurbulence id="turb" type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="1"/><feColorMatrix type="saturate" values="0"/></filter><rect width="1920" height="1080" filter="url(#gn)"/></svg>
+<div id="flash"></div>
+
+<script>
+const B=60/128, $=id=>document.getElementById(id);
+const cl=x=>Math.max(0,Math.min(1,x)), k=(t,a,d)=>cl((t-a)/d), lerp=(a,b,p)=>a+(b-a)*p;
+const eo=x=>1-Math.pow(1-x,3), ex=x=>x>=1?1:1-Math.pow(2,-10*x), eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const eb=x=>{const c=2.2,c3=c+1;return 1+c3*Math.pow(x-1,3)+c*Math.pow(x-1,2)};
+const el=x=>x<=0?0:x>=1?1:Math.pow(2,-10*x)*Math.sin((x*10-.75)*2*Math.PI/3)+1;
+const KP="M47.17 55.39C47.01 57.5 46.76 59.99 46.48 61.63L47.05 61.82C47.96 60.53 48.88 58.7 49.57 57.12C50.2 57.12 50.58 56.87 50.74 56.46ZM40.33 55.51 39.89 55.61C40.36 57.34 40.64 59.87 40.39 61.88C42.25 64.15 45.03 59.8 40.33 55.51ZM55.12 46.84 55.34 47.72H59.16V51.07H56.76L56.95 51.63L54.74 49.74L53.16 51.38H52.91C53.86 48.67 54.96 45.26 55.56 43.28C55.91 43.25 56.22 43.18 56.48 43.06L56.63 43.59H59.16V46.84ZM62.18 43.59H63.82V46.84H62.18ZM50.93 54.91 50.58 55.04C50.89 57.56 51.34 59.61 51.93 61.28C50.99 64.03 49.51 66.49 47.14 68.41L47.42 68.82C49.95 67.47 51.75 65.73 53.07 63.78C55.12 67.25 58.34 68.25 62.97 68.25C64.04 68.25 66.41 68.25 67.48 68.25C67.48 66.8 68.02 65.54 69.09 65.29V64.91C67.58 64.94 64.52 64.94 63.19 64.94C59.09 64.94 56.19 64.31 54.11 62.01C55.53 59.17 56.13 55.96 56.51 52.71C57.14 52.64 57.42 52.52 57.64 52.23L57.33 51.95H59.16V55.36H56.38L56.63 56.27H59.16V59.64H55.66L55.91 60.56H59.16V64.31H59.76C60.89 64.31 62.18 63.65 62.18 63.3V60.56H67.07C67.51 60.56 67.8 60.4 67.86 60.05C66.85 58.98 65.08 57.44 65.08 57.44L63.54 59.64H62.18V56.27H66.38C66.79 56.27 67.07 56.11 67.17 55.77C66.19 54.73 64.52 53.27 64.52 53.27L63.04 55.36H62.18V51.95H63.82V53.18H64.3C65.27 53.18 66.76 52.58 66.79 52.36V47.72H68.74C69.15 47.72 69.44 47.57 69.5 47.22C68.9 46.37 67.73 45.11 67.73 45.11L66.79 46.75V43.94C67.29 43.85 67.67 43.62 67.83 43.44L64.96 41.23L63.54 42.71H62.18V40.63C62.94 40.5 63.19 40.22 63.26 39.78L59.16 39.4V42.71H56.95L53.89 40.25L52.5 41.83H49.54L49.79 42.71H52.6C51.84 45.45 50.61 49.46 49.47 52.55C50.8 52.93 51.71 52.9 52.47 52.64L52.6 52.3H53.45C53.32 54.76 53.04 57.22 52.47 59.49C51.87 58.26 51.37 56.74 50.93 54.91ZM62.18 51.07V47.72H63.82V51.07ZM39 64.75 40.96 68.6C41.31 68.51 41.62 68.22 41.75 67.78C46.01 65.57 48.94 63.84 50.86 62.61L50.77 62.23L46.1 63.3V54.16H49.7C50.14 54.16 50.45 54 50.52 53.68L49.47 52.55L47.87 50.97L46.38 53.27H46.1V49.4H49.03C49.47 49.4 49.76 49.24 49.85 48.89C48.84 47.82 47.08 46.24 47.08 46.24L45.53 48.51H41.46C43.2 46.62 44.65 44.38 45.6 42.33C46.51 43.59 47.2 44.95 47.52 45.93C49.76 47.82 53.16 43.34 46.01 41.39C46.79 41.32 47.14 41.07 47.24 40.69L42.76 39.18C42.25 42.43 40.52 47.69 38.5 50.66L38.82 50.91C39.7 50.28 40.52 49.52 41.31 48.67L41.5 49.4H43.29V53.27H39.45L39.7 54.16H43.29V63.93C41.46 64.31 39.95 64.6 39 64.75Z";
+const ICON=(s)=>`<div style="width:${s}px;height:${s}px;border-radius:${s*.24}px;background:#16262A;box-shadow:0 30px 70px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center"><svg width="${s}" height="${s}" viewBox="22 22 64 64"><path d="M43,30h22a13,13 0 0 1 13,13v22a13,13 0 0 1 -13,13h-22a13,13 0 0 1 -13,-13v-22a13,13 0 0 1 13,-13z" fill="rgba(255,255,255,.09)" stroke="rgba(255,255,255,.18)" stroke-width=".8"/><path fill="#EDF3F3" d="${KP}"/></svg></div>`;
+const XI='<svg width="26" height="26" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg>';
+const RI='<svg width="26" height="26" viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.05-4.95M19 4v4h-4" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const CI='<svg width="28" height="28" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#fff" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const FL=(w,h,c='#FF9A3D')=>`<svg width="${w}" height="${h}" viewBox="0 0 24 28"><path d="M12 1c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6 0 2 1 3.5 2.5 4C10 9 11 5 12 1z" fill="${c}"/></svg>`;
+
+function todayHTML(p){return `<div class="kick">Oct 2026</div><div class="ttl">Today</div><div class="sub">Wed, 7 Oct</div>
+ <div class="card" style="margin-top:22px;padding:18px"><div style="display:flex;justify-content:space-between"><span style="font-size:17px">3 words today</span><span style="font-size:15px;color:#93A6A8">‹ 1/3 ›</span></div>
+  <div id="${p}card" class="card" style="margin-top:14px;padding:16px;background:rgba(80,105,110,.35);height:278px;position:relative;overflow:hidden">
+   <div class="kick" style="font-size:11px">☀ Wed, 7 Oct</div>
+   <div id="${p}a" style="position:absolute;left:16px;right:16px;top:44px"><div style="display:flex;gap:16px;align-items:center"><div class="jp" style="width:118px;height:100px;border-radius:16px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:52px;font-weight:500">花火</div><div><div class="jp" style="font-size:20px;color:#93A6A8">はなび</div><div style="font-size:24px;font-weight:600">fireworks</div></div></div>
+    <div style="border-top:1px solid rgba(255,255,255,.1);margin-top:16px;padding-top:12px"><div class="tag">EXAMPLE</div><div class="jp" style="font-size:17px;margin-top:6px">すごい花火だ！</div><div style="font-size:14px;color:#93A6A8;margin-top:2px">These fireworks are spectacular!</div></div></div>
+   <div id="${p}b" style="position:absolute;left:16px;right:16px;top:44px;opacity:0"><div style="display:flex;gap:16px;align-items:center"><div class="jp" style="width:118px;height:100px;border-radius:16px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:52px;font-weight:500">勉強</div><div><div class="jp" style="font-size:20px;color:#93A6A8">べんきょう</div><div style="font-size:24px;font-weight:600;line-height:1.15">study; diligence</div></div></div>
+    <div style="border-top:1px solid rgba(255,255,255,.1);margin-top:16px;padding-top:12px"><div class="tag">EXAMPLE</div><div class="jp" style="font-size:17px;margin-top:6px">日本語を勉強しています。</div><div style="font-size:14px;color:#93A6A8;margin-top:2px">I am studying Japanese.</div></div></div>
+  </div></div>
+ <div style="display:flex;justify-content:center;gap:44px;margin-top:26px">
+  <div><div class="btnc" style="background:#E0605A;margin:auto">${XI}</div><div class="lbl">Reject</div></div>
+  <div><div id="${p}new" class="btnc" style="background:#56696C;margin:auto">${RI}</div><div class="lbl">New word</div></div>
+  <div><div id="${p}add" class="btnc" style="background:#3FA877;margin:auto">${CI}</div><div class="lbl">Add</div></div></div>
+ <div class="card" style="margin-top:22px;padding:16px 18px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:18px">Review</div><div id="${p}rev" style="font-size:14px;color:#93A6A8;margin-top:2px">12 cards waiting</div></div><div class="pill" style="width:76px;height:42px;font-size:16px">Study</div></div>
+ <div class="nav"><i class="on"></i><i></i><i></i><i></i></div><div class="touch" id="${p}touch"></div>`}
+
+function homeHTML(p){return `<div style="position:absolute;inset:0;background:linear-gradient(160deg,#9FB3B5 0%,#3E5A5E 40%,#2F4245 65%,#C9B48F 100%)"></div>
+ <div style="position:absolute;left:30px;top:40px;font-size:15px;font-weight:600;color:#fff">10:38</div>
+ <div id="${p}wid" style="position:absolute;left:18px;right:18px;top:110px;height:200px;border-radius:30px;background:rgba(22,36,39,.92)">
+  <div class="jp" style="position:absolute;left:24px;top:22px;font-size:68px;font-weight:500">花火</div>
+  <div style="position:absolute;left:190px;top:30px"><div class="jp" style="font-size:19px;color:#C9D6D7">はなび</div><div style="font-size:21px;font-weight:700">fireworks</div><div class="jp" style="font-size:13px;color:#93A6A8;margin-top:4px;white-space:nowrap">すごい花火だ！ · These fi…</div></div>
+  <div style="position:absolute;left:0;right:0;bottom:20px;display:flex;justify-content:center;gap:30px"><div class="btnc" style="background:#E0605A;width:52px;height:52px">${XI}</div><div class="btnc" style="background:#56696C;width:52px;height:52px">${RI}</div><div id="${p}ok" class="btnc" style="background:#3FA877;width:52px;height:52px">${CI}</div></div>
+ </div>
+ <div style="position:absolute;left:34px;right:34px;top:360px;display:grid;grid-template-columns:repeat(4,1fr);gap:34px 0">${['#E3E8E4','#D7C3A2','#9FB3B5','#C9D6D7','#F2E6D0','#B8C7C2','#E0D3BA','#A9BCBD','#D6DDD8','#C2B496','#B0C2C4','#E7DCC8'].map(c=>`<div style="width:64px;height:64px;border-radius:18px;margin:auto;background:${c};opacity:.6"></div>`).join('')}</div>
+ <div id="${p}toast" style="position:absolute;left:50%;top:325px;transform:translateX(-50%);background:#EDF3F3;color:#111D20;font-size:17px;font-weight:700;padding:11px 20px;border-radius:30px;white-space:nowrap;opacity:0;z-index:20">✓ 花火 added to your deck</div>
+ <div class="touch" id="${p}touch"></div>`}
+
+const STUDY=`<div class="kick">Your deck</div><div class="ttl">Study</div><div class="sub">4 decks</div>
+ <div style="display:flex;gap:10px;margin-top:18px"><div class="card" style="flex:1;padding:12px 14px"><div class="tag" style="color:#FF9A3D">● KANJILOCK</div><div style="font-size:15px;margin-top:6px">Accepted words</div></div><div class="card" style="flex:1;padding:12px 14px;border:2px solid #EDF3F3"><div class="tag" style="color:#5B9BD5">● ANKI</div><div style="font-size:15px;margin-top:6px">JLPT N5 Vocab</div></div></div>
+ <div style="display:flex;gap:10px;margin-top:10px"><div class="card" style="flex:1;padding:10px 14px"><div style="font-size:13px;color:#93A6A8"><span style="color:#5B9BD5">●</span> New</div><div style="font-size:28px">10</div></div><div class="card" style="flex:1;padding:10px 14px"><div style="font-size:13px;color:#93A6A8"><span style="color:#D9A54A">●</span> Learning</div><div style="font-size:28px">2</div></div><div class="card" style="flex:1;padding:10px 14px"><div style="font-size:13px;color:#93A6A8"><span style="color:#3FA877">●</span> Review</div><div id="rv" style="font-size:28px">31</div></div></div>
+ <div class="card" style="margin-top:14px;padding:18px;height:300px;position:relative"><div style="display:flex;justify-content:space-between"><span class="tag">TYPE THE READING!</span><span class="tag">REVIEW</span></div>
+  <div class="jp" style="text-align:center;font-size:66px;font-weight:600;margin-top:22px">食べる</div>
+  <div id="sin" class="jp" style="margin-top:24px;height:64px;border-radius:14px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:28px;border:2px solid transparent"></div>
+  <div id="sans" style="text-align:center;margin-top:14px;font-size:18px;color:#3FA877;opacity:0">✓ たべる · to eat</div></div>
+ <div id="grades" style="display:flex;gap:8px;margin-top:14px"><div class="pill" style="flex:1;height:52px;background:#E0605A;color:#fff">Again</div><div class="pill" style="flex:1;height:52px;background:#D9A54A;color:#fff">Hard</div><div id="sgood" class="pill" style="flex:1;height:52px;background:#3FA877;color:#fff">Good</div><div class="pill" style="flex:1;height:52px;background:#5B9BD5;color:#fff">Easy</div></div>
+ <div class="nav"><i></i><i class="on"></i><i></i><i></i></div><div class="touch" id="stouch"></div>`;
+
+const DRES=[['食べる','たべる · ICHIDAN VERB','to eat; to live on (e.g. a salary)'],['食べ物','たべもの · NOUN','food'],['食べ歩き','たべあるき · NOUN, SURU VERB','trying the food at various restaurants'],['食べ過ぎ','たべすぎ · NOUN','overeating; eating too much'],['食べ方','たべかた · NOUN','way of eating, how to eat']];
+const DICT=`<div class="kick">Dictionary</div><div class="ttl">Look it up</div><div class="sub">213,177 words · 13,108 kanji, all offline</div>
+ <div class="card" style="margin-top:18px;height:54px;display:flex;align-items:center;padding:0 16px;gap:10px"><span style="color:#93A6A8">⌕</span><span id="dq" class="jp" style="font-size:19px"></span><span id="dcur" style="width:2px;height:22px;background:#EDF3F3"></span></div>
+ <div style="display:flex;gap:10px;margin-top:10px"><div id="ddraw" class="card" style="flex:1;height:48px;display:flex;align-items:center;justify-content:center;font-size:16px">✎ Draw a kanji</div><div class="card" style="flex:1;height:48px;display:flex;align-items:center;justify-content:center;font-size:16px">◉ Scan text</div></div>
+ ${DRES.map((r,i)=>`<div class="card row" id="d${i}"><div class="kbox jp" style="font-size:${r[0].length>3?15:19}px">${r[0]}</div><div><div class="tag jp">${r[1]}</div><div class="mean">${r[2]}</div></div></div>`).join('')}
+ <div class="nav"><i></i><i></i><i class="on"></i><i></i></div>`;
+
+let CAL=['S','M','T','W','T','F','S'].map(d=>`<div style="color:#93A6A8;font-size:12px">${d}</div>`).join('')+'<div></div>'.repeat(4);
+for(let d=1;d<=31;d++)CAL+=d<=7?`<div style="position:relative;height:30px"><span class="fl" style="position:absolute;left:50%;top:-4px;margin-left:-14px;display:block">${FL(28,34)}</span><span style="position:relative;color:#fff;font-weight:700;font-size:13px;top:6px">${d}</span></div>`:`<div style="height:30px;line-height:30px">${d}</div>`;
+const PROG=`<div class="kick">Your deck</div><div class="ttl">Progress</div><div class="sub">JLPT N5 Vocab</div>
+ <div class="card" style="margin-top:18px;padding:18px"><div style="display:flex;align-items:center;gap:10px"><span id="pfl" style="display:block">${FL(40,46)}</span><span id="pn" style="font-size:52px;font-weight:600">1</span><span style="margin-left:auto;font-size:14px;color:#93A6A8">Best 7</span></div>
+  <div style="font-size:15px;color:#93A6A8">Day streak · today's done</div>
+  <div style="display:flex;justify-content:space-around;margin-top:14px;padding:12px;border-radius:14px;background:rgba(255,255,255,.06);font-size:15px;color:#93A6A8"><span><b style="font-size:24px;color:#EDF3F3;font-weight:500">48</b> In deck</span><span><b style="font-size:24px;color:#EDF3F3;font-weight:500">12</b> Due</span><span><b style="font-size:24px;color:#EDF3F3;font-weight:500">9</b> Mined</span></div>
+  <div style="font-size:19px;margin-top:16px">October 2026</div><div style="font-size:13px;color:#93A6A8">7 flame days</div>
+  <div id="pcal" style="display:grid;grid-template-columns:repeat(7,1fr);row-gap:10px;margin-top:10px;text-align:center;font-size:14px;color:#63777A">${CAL}</div></div>
+ <div class="card" style="margin-top:12px;padding:14px 16px"><div style="font-size:18px">Insights</div><div style="display:flex;gap:8px;margin-top:10px">${[['23','Reviews today'],['91%','Retention 30d'],['24','Mature']].map(x=>`<div style="flex:1;padding:10px;border-radius:12px;background:rgba(255,255,255,.06)"><div style="font-size:24px">${x[0]}</div><div style="font-size:11px;color:#93A6A8">${x[1]}</div></div>`).join('')}</div></div>`;
+
+function phone(id,inner,x,y){return `<div class="rig" id="${id}" style="left:${x}px;top:${y}px">${[1,2,3,4,5,6,7].map(i=>`<div class="slab" style="transform:translateZ(${-i*2.4}px)"></div>`).join('')}<div class="phone"><div class="screen" id="${id}scr"><div class="cam"></div>${inner}<div class="glint" id="${id}gl"></div></div></div></div>`}
+function burst(id,x,y,colors){let h=`<div class="burst" id="${id}" style="left:${x}px;top:${y}px">`;for(let i=0;i<18;i++)h+=`<i style="background:${colors[i%colors.length]}"></i>`;return h+'</div>'}
+const PAL=[['Teal','111D20','172629','2A4247','EDF3F3'],['Midnight','0D1222','141B31','27324F','EEF1FA'],['Sakura','1C1216','28191F','4B2C38','F8EEF1'],['Matcha','111912','172219','2E4430','EEF4EC'],['Sumi','0A0A0B','111113','222226','F2F2F2'],['Ocean','07161F','0B2230','12425A','EAF6FB'],['Ember','1A0F0B','26150F','52291A','FBEFE8'],['Honey','1A1508','241C0A','4A3A10','FBF5E3'],['Lavender','15111F','1D1730','3A2D5A','F3EFFB'],['Void','000000','000000','0A0A0A','F5F5F5'],['Indigo','0B1026','131A3C','293566','EEF0FF'],['Mocha','17110D','231A14','473528','F6EDE4'],['Forest','071410','0C2019','17402F','E9F6EF'],['Wine','180A0F','261017','511F32','F9EBF0'],['Grape','130B1E','1D1130','3C2160','F2EBFC'],['Slate','0E1214','161B1E','2B343A','EDF1F3'],['Neon','05080D','080E18','0E1C2E','E6FBFF'],['Clay','1A110D','281811','55301F','FBEEE6'],['Washi','F6F3EC','EEE9DE','DCD3C1','1E2427'],['Lemon','FFFBEA','FFF4C7','F5E08A','2A2410'],['Snow','F7F9FB','EEF2F6','D9E1EA','1B2430'],['Sand','FBF7F0','F3ECE0','E2D6C1','23201A'],['Sage','F4F8F3','E8F0E6','CFDECA','1A241B'],['Blossom','FFF6F8','FCE9EE','F3CCD8','2A1A20'],['Sky','F5FAFF','E7F2FC','C9DEF2','13202C'],['Paper','FFFFFF','F4F4F5','E2E2E5','121214']];
+const STROBE=[['花','#000','#fff'],['勉','#3FA877','#0B1A1C'],['食','#fff','#111D20'],['学','#FF9A3D','#1A0F0B'],['本','#111D20','#EDF3F3'],['語','#E0605A','#fff'],['日','#5B9BD5','#0B1026'],['鍵','#000','#EDF3F3']];
+
+// ---------- shots: [startBeat,endBeat,bg,entry,exit] ----------
+const SH=[
+ [0,4,'#000','cut','cut'],        //0 hook strobe
+ [4,8,'#3FA877','cut','iris'],    //1 ONE WORD A DAY
+ [8,12,'#0B1416','iris','whip'],  //2 widget on home screen
+ [12,16,'#071012','flash','zoom'],//3 logo
+ [16,20,'#0E1A1C','zoom','whip'], //4 today
+ [20,24,'#111D20','whip','slice'],//5 study
+ [24,28,'#FF9A3D','slice','whip'],//6 practice
+ [28,32,'#060B0C','whip','iris'], //7 dictionary
+ [32,35,'#EFE9DC','iris','whip'], //8 scan
+ [35,39,'#1A0B07','whip','cut'],  //9 progress
+ [39,42,'#111D20','cut','slice'], //10 themes
+ [42,46,'#0D1222','slice','zoom'],//11 widgets
+ [46,52,'#040809','zoom','none']  //12 outro
+];
+window.DURATION=52*B;
+const W=$('world');
+let html='';
+SH.forEach((s,i)=>{html+=`<div class="shot" id="sh${i}" style="background:${s[2]};z-index:${i+1}"></div>`});
+W.innerHTML=html;
+const defs=$('defs');
+SH.forEach((s,i)=>{defs.insertAdjacentHTML('beforeend',`<filter id="mb${i}" x="-20%" y="-5%" width="140%" height="110%"><feGaussianBlur id="mbg${i}" stdDeviation="0 0"/></filter>`)});
+
+// shot contents
+$('sh0').innerHTML=`<div class="full" id="h0bg"></div><div id="h0k" class="jp" style="position:absolute;left:0;right:0;top:50%;text-align:center;font-size:820px;font-weight:900;line-height:1;transform:translateY(-52%)"></div><div id="h0r" style="position:absolute;left:0;right:0;bottom:70px;text-align:center;font-size:30px;font-weight:700;letter-spacing:10px"></div>`;
+$('sh1').innerHTML=`<div class="marq" id="m1" style="top:-40px;font-size:260px;color:rgba(11,26,28,.12)"></div><div class="marq" id="m1b" style="bottom:-60px;font-size:260px;color:rgba(11,26,28,.12)"></div>
+ <div class="kt" id="t1a" style="left:150px;top:200px;font-size:250px;color:#0B1A1C">One word.</div>
+ <div class="kt" id="t1b" style="left:150px;top:430px;font-size:250px;color:#fff">A day.</div>
+ <div class="kt" id="t1c" style="left:160px;top:720px;font-size:96px;color:#0B1A1C;letter-spacing:-2px">On your home screen.</div>`;
+$('sh2').innerHTML=`<div class="full" id="g2" style="background:radial-gradient(700px 500px at 50% 55%,rgba(63,168,119,.35),transparent 70%)"></div>
+ <div class="kt outl" id="t2bg" style="left:-40px;top:260px;font-size:420px;color:rgba(237,243,243,.10)">花火 花火 花火</div>
+ ${phone('p2',homeHTML('h'),740,85)}${burst('b2',960,420,['#3FA877','#B5FAD6','#fff','#FF9A3D'])}`;
+$('sh3').innerHTML=`<svg id="rings3" class="full" viewBox="0 0 1920 1080"></svg><div class="marq jp" id="m3" style="top:40px;font-size:200px;color:rgba(237,243,243,.06)"></div><div class="marq jp" id="m3b" style="bottom:20px;font-size:200px;color:rgba(237,243,243,.06)"></div>
+ <div id="i3" style="position:absolute;left:50%;top:190px;margin-left:-130px">${ICON(260)}</div>
+ <div id="w3" style="position:absolute;left:0;right:0;top:500px;text-align:center;font-size:210px;font-weight:900;letter-spacing:-8px">${[...'KanjiLock'].map(c=>`<span style="display:inline-block">${c}</span>`).join('')}</div>
+ <div id="s3" style="position:absolute;left:0;right:0;top:770px;text-align:center;font-size:46px;font-weight:600;color:#C9D6D7">One Japanese word a day.</div>`;
+$('sh4').innerHTML=`<div class="kt" id="t4a" style="left:120px;top:250px;font-size:200px;color:#EDF3F3">Reroll</div><div class="kt" id="t4b" style="left:120px;top:250px;font-size:200px;color:#3FA877">Keep it.</div>
+ ${phone('p4',todayHTML('td'),1220,85)}${burst('b4',1220+12+320,85+12+585,['#3FA877','#B5FAD6','#fff'])}`;
+$('sh5').innerHTML=`<div class="kt outl" id="t5o" style="left:90px;top:170px;font-size:230px;color:rgba(237,243,243,.35)">Anki-</div>
+ <div class="kt" id="t5a" style="left:90px;top:170px;font-size:230px;color:#EDF3F3">Anki-</div>
+ <div class="kt" id="t5b" style="left:90px;top:380px;font-size:230px;color:#3FA877">style</div>
+ <div class="kt" id="t5c" style="left:96px;top:620px;font-size:64px;color:#93A6A8;letter-spacing:-1px">Spaced repetition reviews.</div>
+ ${phone('p5',STUDY,1220,85)}${burst('b5',1220+12+254,85+12+675,['#3FA877','#B5FAD6','#fff'])}`;
+const GAMES=[['TYPE THE READING','Reading',`<div class="jp" style="font-size:96px;margin-top:26px;font-weight:600">花火</div><div class="jp gx" style="font-size:36px;color:#3FA877;margin-top:6px">はなび ✓</div>`],
+ ['WHAT DOES IT MEAN','Meaning',`<div class="jp" style="font-size:80px;margin:20px 0 18px;font-weight:600">勉強</div><span class="opt">food</span><span class="opt gx">study</span><span class="opt">fireworks</span><span class="opt">school</span>`],
+ ['WHICH WORD IS IT','Reverse',`<div style="font-size:52px;margin:24px 0 20px;font-weight:700">“fireworks”</div><span class="opt jp">食べ物</span><span class="opt jp gx">花火</span><span class="opt jp">学校</span><span class="opt jp">本</span>`],
+ ['WHAT DID YOU HEAR','Listen',`<div class="wv" style="display:flex;gap:9px;align-items:center;height:140px;margin-top:20px">${'<i style="display:block;width:11px;border-radius:6px;background:#5B9BD5"></i>'.repeat(28)}</div><div class="jp" style="font-size:32px;color:#93A6A8">たべもの</div>`]];
+$('sh6').innerHTML=`<div class="kt" id="t6big" style="left:0;right:0;top:300px;text-align:center;font-size:400px;color:rgba(26,15,11,.16);letter-spacing:-14px"></div>
+ <div class="kt" id="t6a" style="left:90px;top:70px;font-size:110px;color:#1A0F0B">4 games.</div>
+ <div class="kt" id="t6b" style="left:96px;top:190px;font-size:52px;color:#1A0F0B;letter-spacing:-1px;opacity:.8">+ Focus mode</div>
+ <div id="gw" class="full" style="transform-style:preserve-3d">${GAMES.map((g,i)=>`<div class="game" id="gm${i}" style="left:680px;top:340px"><div class="tag" style="font-size:15px">${g[0]}</div><div class="gt">${g[1]}</div>${g[2]}</div>`).join('')}</div>
+ <div id="ach" style="position:absolute;left:1180px;top:110px;width:680px;height:120px;opacity:0"><div style="position:absolute;left:70px;right:0;top:14px;height:92px;border-radius:46px;background:#16262A;box-shadow:0 20px 50px rgba(0,0,0,.4)"></div><div style="position:absolute;left:20px;top:0;width:120px;height:120px;border-radius:50%;background:#2A4247;display:flex;align-items:center;justify-content:center"><svg width="60" height="60" viewBox="0 0 24 24"><path d="M7 3h10v3h3v2a4 4 0 0 1-4 4h-.3A5 5 0 0 1 13 14.9V18h3v3H8v-3h3v-3.1A5 5 0 0 1 8.3 12H8a4 4 0 0 1-4-4V6h3zM4 6v2a2 2 0 0 0 3 1.7V6zm16 0h-3v3.7A2 2 0 0 0 20 8z" fill="#F5C518"/></svg></div><div style="position:absolute;left:170px;top:26px"><div style="font-size:34px;font-weight:800">Unstoppable</div><div style="font-size:23px;color:#93A6A8">25 readings right in a row</div></div></div>`;
+$('sh7').innerHTML=`<div class="full" style="background:radial-gradient(800px 600px at 72% 50%,rgba(91,155,213,.18),transparent 70%)"></div>
+ <div class="kt" id="t7n" style="left:90px;top:200px;font-size:230px;color:#EDF3F3;letter-spacing:-10px">0</div>
+ <div class="kt" id="t7a" style="left:96px;top:420px;font-size:120px;color:#5B9BD5">words.</div>
+ <div class="kt" id="t7b" style="left:96px;top:560px;font-size:120px;color:#EDF3F3">Fully offline.</div>
+ <div class="kt" id="t7c" style="left:100px;top:720px;font-size:52px;color:#93A6A8;letter-spacing:-1px">Search it, or draw the kanji.</div>
+ ${phone('p7',DICT,1260,85)}`;
+const SCL=[['毎日日本語を勉強します','#5B9BD5',[['毎日','#5B9BD5'],['日本語','#3FA877'],['を','#D9A54A'],['勉強','#E0605A'],['します','#C792EA']]],['新しい本は面白かった','#3FA877',[['新しい','#5B9BD5'],['本','#3FA877'],['は','#D9A54A'],['面白かった','#E0605A']]],['学校へ行きましょう','#D9A54A',[['学校','#D9A54A'],['へ','#C792EA'],['行きましょう','#5B9BD5']]]];
+$('sh8').innerHTML=`<div class="full" style="background:radial-gradient(ellipse at 45% 45%,#F7F2E6,#DCD3BF 70%,#B9AF99)"></div>
+ <div id="scanpaper" class="full">${SCL.map((l,i)=>`<div class="jp scl" id="sc${i}" style="position:absolute;left:250px;top:${230+i*230}px;font-size:110px;color:#2a2622;font-weight:500;padding:14px 26px">${l[2].map(([w,c])=>`<span style="position:relative;display:inline-block">${w}<i class="ul" style="position:absolute;left:4px;right:4px;bottom:-4px;height:8px;border-radius:4px;background:${c};display:block;transform:scaleX(0);transform-origin:left"></i></span>`).join('')}<div class="box" style="position:absolute;inset:0;border:6px solid ${l[1]};border-radius:20px;background:${l[1]}22;opacity:0"></div></div>`).join('')}</div>
+ <div id="vf" class="full" style="pointer-events:none">${[[0,0],[1,0],[0,1],[1,1]].map(([a,b])=>`<div class="vfc" style="position:absolute;width:120px;height:120px;border:10px solid #fff;border-${a?'left':'right'}:none;border-${b?'top':'bottom'}:none;border-radius:${a&&b?'0 0 30px 0':a?'0 30px 0 0':b?'0 0 0 30px':'30px 0 0 0'}"></div>`).join('')}</div>
+ <div id="sbar" style="position:absolute;left:0;right:0;height:8px;background:#3FA877;box-shadow:0 0 40px 10px rgba(63,168,119,.6)"></div>
+ <div class="kt" id="t8a" style="left:80px;top:60px;font-size:120px;color:#1E2427">Point.</div><div class="kt" id="t8b" style="left:470px;top:60px;font-size:120px;color:#1E2427">Scan.</div><div class="kt" id="t8c" style="left:840px;top:60px;font-size:120px;color:#E0605A">Tap.</div>
+ <div class="touch" id="t8touch" style="width:140px;height:140px;margin:-70px 0 0 -70px;background:rgba(30,36,39,.25);border-color:rgba(30,36,39,.6)"></div>
+ <div id="pop8" style="position:absolute;left:820px;top:430px;padding:30px 40px;border-radius:32px;background:#16262A;color:#EDF3F3;opacity:0;box-shadow:0 40px 90px rgba(0,0,0,.45)"><div style="display:flex;gap:28px;align-items:center"><div class="jp" style="font-size:110px;font-weight:600">勉強</div><div><div class="jp" style="font-size:36px;color:#93A6A8">べんきょう</div><div style="font-size:44px;font-weight:700">study; diligence</div></div></div></div>`;
+$('sh9').innerHTML=`<div class="full" style="background:radial-gradient(900px 700px at 30% 60%,#7A2A12,#2A0F08 60%,#120604)"></div>
+ <div class="kt" id="t9n" style="left:60px;top:40px;font-size:1000px;letter-spacing:-50px;background:linear-gradient(180deg,#FFE0AE,#FF7A3D 55%,#E0605A);-webkit-background-clip:text;background-clip:text;color:transparent">1</div>
+ <div class="kt" id="t9a" style="left:600px;top:420px;font-size:120px;color:#FFE0AE">day</div><div class="kt" id="t9b" style="left:600px;top:540px;font-size:120px;color:#FFE0AE">streak.</div>
+ <div id="emb" class="full"></div>
+ ${phone('p9',PROG,1290,85)}`;
+$('sh10').innerHTML=`<div class="full" id="bg10"></div><div class="kt" id="t10n" style="left:90px;top:300px;font-size:330px;letter-spacing:-14px">26</div><div class="kt" id="t10a" style="left:96px;top:600px;font-size:140px">themes.</div><div class="kt" id="t10t" style="left:100px;top:780px;font-size:60px;letter-spacing:-1px"></div>
+ ${phone('p10',todayHTML('th'),1250,85)}`;
+$('sh11').innerHTML=`<div class="marq" id="m11" style="top:880px;font-size:120px;color:rgba(237,243,243,.9)"></div>
+ <div class="kt" id="t11a" style="left:90px;top:120px;font-size:150px;color:#EDF3F3">Widgets.</div><div class="kt" id="t11b" style="left:90px;top:270px;font-size:150px;color:#5B9BD5">Decks.</div><div class="kt" id="t11c" style="left:90px;top:420px;font-size:150px;color:#3FA877">Sync.</div>
+ ${phone('p11',homeHTML('h11'),980,40)}
+ <div id="wA" class="wid" style="left:1430px;top:90px;width:300px;height:300px;display:flex;align-items:center;justify-content:center"><span class="jp" style="font-size:170px;font-weight:500">花</span></div>
+ <div id="wB" class="wid" style="left:1450px;top:430px;width:420px;height:250px;padding:28px 32px"><div style="display:flex;align-items:center;gap:12px">${FL(44,52)}<span style="font-size:72px;font-weight:700">7</span><span style="font-size:24px;color:#A9BABC;margin-top:20px">day streak</span></div><div style="display:flex;gap:10px;margin-top:22px">${FL(32,38).repeat(7)}</div></div>
+ <div id="wC" class="wid" style="left:90px;top:610px;width:380px;height:250px;padding:28px 32px"><div style="font-size:72px;font-weight:700">12</div><div style="font-size:24px;color:#A9BABC">cards due</div><div class="pill" style="position:absolute;right:28px;bottom:28px;width:110px;height:50px;font-size:20px">Study</div></div>
+ <div id="wD" class="wid" style="left:820px;top:690px;width:320px;height:130px;display:flex;align-items:center;gap:16px;padding:0 28px"><svg width="44" height="44" viewBox="0 0 24 24"><path d="M7 4h7l5 5v11H7z" fill="none" stroke="#EDF3F3" stroke-width="1.8"/><path d="M14 4v5h5" fill="none" stroke="#EDF3F3" stroke-width="1.8"/></svg><div><div style="font-size:26px;font-weight:700">.apkg</div><div style="font-size:18px;color:#A9BABC">Anki import · export</div></div></div>`;
+$('sh12').innerHTML=`<svg id="rings12" class="full" viewBox="0 0 1920 1080"></svg>
+ <div style="position:absolute;left:0;right:0;top:150px;display:flex;flex-direction:column;align-items:center" id="o12">
+  <div id="i12">${ICON(220)}</div>
+  <div id="w12" style="font-size:170px;font-weight:900;letter-spacing:-7px;margin-top:26px;line-height:1">${[...'KanjiLock'].map(c=>`<span style="display:inline-block">${c}</span>`).join('')}</div>
+  <div id="a12" style="font-size:48px;font-weight:800;margin-top:26px">No accounts. No ads. No tracking.</div>
+  <div id="b12" style="font-size:32px;color:#93A6A8;margin-top:20px">Free &amp; open source · Android 8.0+ · github.com/Jideeh1/KanjiLock</div></div>`;
+
+// marquees
+$('m1').textContent=$('m1b').textContent='ONE WORD · A DAY · '.repeat(8);
+$('m3').textContent='漢字 日本語 単語 毎日 '.repeat(8);$('m3b').textContent='毎日 単語 日本語 漢字 '.repeat(8);
+$('m11').textContent='ANKI ✦ KOTOBA ✦ ANKIDROID ✦ .APKG OUT ✦ GOOGLE DRIVE SYNC ✦ '.repeat(4);
+// rings
+function rings(id){let s='';for(let i=0;i<6;i++)s+=`<circle cx="960" cy="540" r="${180+i*130}" fill="none" stroke="rgba(237,243,243,${.16-i*.02})" stroke-width="${i%2?2:4}" stroke-dasharray="${i%2?'6 18':'40 30'}" class="rg"/>`;
+ for(let i=0;i<4;i++)s+=`<circle cx="960" cy="540" r="0" fill="none" stroke="#3FA877" stroke-width="6" class="pl"/>`;$(id).innerHTML=s}
+rings('rings3');rings('rings12');
+// embers
+$('emb').innerHTML=[...Array(40)].map((_,i)=>`<i style="position:absolute;display:block;width:${4+i%5*2}px;height:${4+i%5*2}px;border-radius:50%;background:${i%3?'#FF9A3D':'#FFE0AE'};box-shadow:0 0 12px #FF7A3D"></i>`).join('');
+
+// ---------- helpers ----------
+function T(el,{x=0,y=0,s=1,r=0,o=1,blur=0,sx=1,sy=1}){el.style.opacity=o;el.style.transform=`translate(${x}px,${y}px) rotate(${r}deg) scale(${s*sx},${s*sy})`;el.style.filter=blur>0.3?`blur(${blur}px)`:'none'}
+function slam(el,lt,at,{s0=2.4,r0=-6,out=null,dx=0,dy=0}={}){const p=k(lt,at,0.24),pb=eb(p);let s=lerp(s0,1,pb),r=r0*(1-pb),o=k(lt,at,0.04),x=dx*(1-ex(p)),y=dy*(1-ex(p));
+ const sq=p<1?1+0.12*Math.sin(p*Math.PI):1;
+ if(out!==null){const q=k(lt,out,0.16);s*=1-eio(q);r+=-15*q;}T(el,{x,y,s,r,o,blur:(1-ex(p))*12,sx:1/sq,sy:sq})}
+function pushUp(el,lt,at,dist){const p=el?eb(k(lt,at,0.25)):0;return -dist*p}
+function rig(id,{x=0,y=0,z=0,rx=0,ry=0,rz=0,s=1,ox=220,oy=455,o=1}){const r=$(id);r.style.transformOrigin=`${ox}px ${oy}px`;r.style.opacity=o;r.style.transform=`perspective(2400px) translate3d(${x}px,${y}px,${z}px) rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg) scale(${s})`}
+function glint(id,lt,a){const g=$(id+'gl');const p=k(lt,a,0.7);g.style.backgroundPosition=`${lerp(130,-30,eio(p))}% 0`;g.style.opacity=p>0&&p<1?1:0}
+function touch(el,lt,at,x,y){const p=k(lt,at-0.1,0.4);el.style.left=x+'px';el.style.top=y+'px';const o=p<=0?0:(p<0.25?p/0.25:1-(p-0.25)/0.75);el.style.opacity=o*.9;el.style.transform=`scale(${0.5+0.7*p})`}
+function press(el,lt,at){const p=k(lt,at-0.03,0.2);el.style.transform=`scale(${p>0&&p<1?1-0.16*Math.sin(p*Math.PI):1})`}
+function burstAnim(id,lt,at){const b=$(id);[...b.children].forEach((c,i)=>{const p=k(lt,at,0.6);const a=i/18*Math.PI*2+i*.3;const d=(90+((i*37)%70))*eo(p)*2;const sz=(10+(i%4)*5)*(1-p);c.style.width=c.style.height=sz+'px';c.style.left=Math.cos(a)*d-sz/2+'px';c.style.top=Math.sin(a)*d-sz/2+'px';c.style.opacity=p>0&&p<1?1:0})}
+function marq(id,t,speed,dir=1){const e=$(id);e.style.transform=`translateX(${dir>0?-((t*speed)%1400):-1400+((t*speed)%1400)}px)`}
+function ringsAnim(id,lt){const s=$(id);s.querySelectorAll('.rg').forEach((c,i)=>{c.style.transformOrigin='960px 540px';c.style.transform=`rotate(${(i%2?-1:1)*lt*(20+i*8)}deg) scale(${1+0.02*Math.sin(lt*3+i)})`});
+ s.querySelectorAll('.pl').forEach((c,i)=>{const ph=((lt/B)+i*0.25)%1;const bi=Math.floor(lt/B);c.setAttribute('r',100+ph*900);c.setAttribute('opacity',(1-ph)*0.5)})}
+function stagger(id,lt,at,gap,{s0=0,y0=160,r0=20}={}){$(id).querySelectorAll('span').forEach((c,i)=>{const p=k(lt,at+i*gap,0.45);const e=el(p);c.style.opacity=k(lt,at+i*gap,0.05);c.style.transform=`translateY(${(1-e)*y0}px) rotate(${(1-e)*r0}deg) scale(${lerp(s0,1,e)})`})}
+function fmt(n){return n.toLocaleString('en-US')}
+
+// ---------- impacts (global times in beats) ----------
+const HITS=[0,4,5,6,8,12,16,20,24,25,26,27,28,32,35,39,42,43,44,45,46];
+const FLASH=[[12,0.9],[4,0.5],[28,0.4],[46,0.8],[39,0.35]];
+
+// ---------- per-shot renderers (lt seconds, D seconds) ----------
+const R=[
+ (lt,D)=>{ // kanji strobe
+   const i=Math.min(7,Math.floor(lt/(B/2)));const [c,bg,fg]=STROBE[i];
+   $('h0bg').style.background=bg;const kk=$('h0k');kk.textContent=c;kk.style.color=fg;
+   const p=k(lt,i*B/2,0.16);kk.style.transform=`translateY(-52%) scale(${lerp(1.35,1,ex(p))*(1+0.04*(lt-i*B/2))}) rotate(${(i%2?3:-3)*(1-ex(p))}deg)`;
+   kk.style.filter=`blur(${(1-ex(p))*10}px)`;
+   const R2=['HANA','BEN','SHOKU','GAKU','HON','GO','NICHI','KAGI'];$('h0r').textContent=R2[i];$('h0r').style.color=fg;$('h0r').style.opacity=.55;
+ },
+ (lt,D)=>{ // ONE WORD. A DAY.
+   marq('m1',lt,500,1);marq('m1b',lt,500,-1);
+   const up=pushUp(1,lt,2*B,120);
+   slam($('t1a'),lt,0,{s0:3,r0:-8});$('t1a').style.transform+=` translateY(${up}px)`;
+   slam($('t1b'),lt,B,{s0:3,r0:6});$('t1b').style.transform+=` translateY(${up}px)`;
+   slam($('t1c'),lt,2*B,{s0:0.3,r0:0,dy:80});
+ },
+ (lt,D)=>{ // widget
+   marq('t2bg',lt,180,1);
+   const p=ex(k(lt,0,0.6));const z=eio(k(lt,0.55,0.6));
+   rig('p2',{x:0,y:(1-p)*-1100,rx:(1-p)*40,ry:lerp(-30,-8,p)*(1-z)+3*Math.sin(lt*2),rz:(1-p)*-25,s:1+0.75*z,oy:230,ox:220});
+   glint('p2',lt,0.3);
+   touch($('htouch'),lt,2*B,290,264);press($('hok'),lt,2*B);
+   const tp=eb(k(lt,2*B+0.1,0.3));$('htoast').style.opacity=k(lt,2*B+0.1,0.08);$('htoast').style.transform=`translateX(-50%) translateY(${(1-tp)*30}px) scale(${0.7+0.3*tp})`;
+   burstAnim('b2',lt,2*B+0.05);
+   $('b2').style.left=(740+302)+'px';$('b2').style.top=(85+276)+'px';
+   const zz=1+0.75*z;$('b2').style.transform=`translate(${(302-220)*(zz-1)}px,${(276-230)*(zz-1)}px) scale(${zz})`;
+ },
+ (lt,D)=>{ // logo
+   ringsAnim('rings3',lt);marq('m3',lt,220,1);marq('m3b',lt,220,-1);
+   const p=k(lt,0,0.5);const ic=$('i3');ic.style.transform=`perspective(900px) rotateY(${(1-ex(p))*-540}deg) scale(${lerp(0.2,1,eb(p))})`;ic.style.opacity=k(lt,0,0.05);
+   stagger('w3',lt,0.18,0.035);
+   slam($('s3'),lt,0.75,{s0:0.6,r0:0,dy:40});
+   const d=k(lt,0,D);$('sh3').style.transform+=` scale(${1+0.06*d})`;
+ },
+ (lt,D)=>{ // today
+   const p=ex(k(lt,0,0.5));
+   rig('p4',{x:(1-p)*900,ry:lerp(-70,-14,p)+6*k(lt,0.5,D),rx:6,rz:(1-p)*12,s:1.02});glint('p4',lt,0.4);
+   const tA=1.5*B,tB=2.5*B;
+   touch($('tdtouch'),lt,tA,206,585);press($('tdnew'),lt,tA);
+   const f=k(lt,tA+0.03,0.3);$('tda').style.opacity=1-cl(f*2);$('tdb').style.opacity=cl(f*2-1);
+   $('tdcard').style.transform=`perspective(800px) rotateY(${Math.sin(f*Math.PI)*-40}deg)`;
+   if(lt>tA+0.35)touch($('tdtouch'),lt,tB,320,585);press($('tdadd'),lt,tB);
+   const g=k(lt,tB,0.5);$('tdcard').style.boxShadow=`0 0 0 ${4*Math.sin(g*Math.PI)}px #3FA877,0 0 ${60*Math.sin(g*Math.PI)}px rgba(63,168,119,.7)`;
+   $('tdrev').textContent=lt>tB?'13 cards waiting':'12 cards waiting';
+   burstAnim('b4',lt,tB);
+   slam($('t4a'),lt,tA,{s0:2.5,out:tB-0.1});$('t4a').textContent='Reroll it.';$('t4a').style.color='#EDF3F3';
+   if(lt<tA)T($('t4a'),{o:0});
+   slam($('t4b'),lt,tB,{s0:3,r0:8});
+ },
+ (lt,D)=>{ // study
+   const ent=ex(k(lt,0,0.45));const pull=eio(k(lt,1.25,0.55));
+   rig('p5',{x:(1-ent)*1200,ry:lerp(-30,-12,pull)+4*k(lt,1.8,1.4),rx:lerp(10,5,pull),rz:lerp(-4,0,pull),s:lerp(2.1,1,pull),ox:200,oy:478,o:1});glint('p5',lt,1.6);
+   const seq=['','た','たb','たべ','たべr','たべる'];const i=Math.min(5,Math.max(0,Math.floor((lt-0.25)/0.15)+1));$('sin').textContent=lt<0.25?'':seq[i];
+   const ok=k(lt,1.05,0.15);$('sin').style.borderColor=`rgba(63,168,119,${ok})`;$('sin').style.boxShadow=`0 0 ${40*ok}px rgba(63,168,119,${0.6*ok})`;
+   $('sans').style.opacity=k(lt,1.1,0.2);
+   const gp=eb(k(lt,1.5,0.35));$('grades').style.opacity=k(lt,1.5,0.1);$('grades').style.transform=`translateY(${(1-gp)*40}px)`;
+   touch($('stouch'),lt,3*B+0.2,254,675);press($('sgood'),lt,3*B+0.2);burstAnim('b5',lt,3*B+0.2);
+   $('rv').textContent=lt>3*B+0.25?'30':'31';
+   slam($('t5a'),lt,0.0,{s0:3,r0:-8});slam($('t5o'),lt,0.08,{s0:1.3,r0:0});$('t5o').style.transform+=` translate(${14+6*Math.sin(lt*6)}px,${12}px)`;
+   slam($('t5b'),lt,B,{s0:3,r0:8});slam($('t5c'),lt,2*B,{s0:0.4,r0:0,dy:30});
+ },
+ (lt,D)=>{ // practice: card deck slams one per beat
+   slam($('t6a'),lt,0,{s0:2,r0:-6});slam($('t6b'),lt,0.25,{s0:0.4,r0:0,dx:-60});
+   const names=['READING','MEANING','REVERSE','LISTEN'];const idx=Math.min(3,Math.floor(lt/B));
+   const bg=$('t6big');bg.textContent=names[idx];const pb=k(lt,idx*B,0.2);bg.style.transform=`scale(${lerp(1.3,1,ex(pb))}) translateX(${-30*((lt-idx*B)/B)}px)`;
+   for(let i=0;i<4;i++){const g=$('gm'+i);const a=i*B;const p=k(lt,a,0.22);const e=eb(p);
+     const depth=Math.max(0,idx-i);const fan=depth*1;
+     const tx=lerp(i%2?1500:-1500,0,ex(p))+(-70*fan);const ty=lerp(300,0,ex(p))+(-40*fan);
+     g.style.opacity=k(lt,a,0.04);g.style.zIndex=10+i;
+     g.style.transform=`perspective(1600px) translate3d(${tx}px,${ty}px,${-120*fan}px) rotate(${lerp(i%2?25:-25,(i-1.5)*3,e)}deg) rotateY(${-10+3*Math.sin(lt*2)}deg) scale(${1-0.04*fan})`;
+     g.style.filter=fan>0?`blur(${Math.min(6,fan*2)}px) brightness(${1-0.15*fan})`:'none';
+     g.querySelectorAll('.gx').forEach(x=>{const q=k(lt,a+0.25,0.12);x.style.background=x.classList.contains('opt')?`rgba(63,168,119,${0.08+0.85*q})`:'';if(!x.classList.contains('opt'))x.style.opacity=q});
+     g.querySelectorAll('.wv i').forEach((b,j)=>{b.style.height=(16+90*Math.abs(Math.sin(lt*10+j*0.7))*Math.sin((j+1)/29*Math.PI))+'px'});}
+   const ap=eb(k(lt,3.5*B,0.3));const ac=$('ach');ac.style.opacity=k(lt,3.5*B,0.05);ac.style.transform=`translateY(${(1-ap)*-200}px) rotate(${(1-ap)*-8}deg) scale(${0.8+0.2*ap})`;
+ },
+ (lt,D)=>{ // dictionary
+   const n=Math.round(213177*ex(k(lt,0,0.9)));$('t7n').textContent=fmt(n);
+   slam($('t7n'),lt,0,{s0:1.8,r0:-4});slam($('t7a'),lt,0.5*B,{s0:2.5,r0:6});slam($('t7b'),lt,1.5*B,{s0:2.5,r0:-6});slam($('t7c'),lt,2.4*B,{s0:0.4,r0:0,dy:30});
+   const p=ex(k(lt,0.25,0.5));rig('p7',{y:(1-p)*1000,ry:lerp(30,-14,p)+5*k(lt,0.5,D),rx:lerp(30,6,p),rz:(1-p)*10,s:1.02});glint('p7',lt,0.9);
+   const q=['','t','た','たb','たべ'];const i=Math.min(4,Math.max(0,Math.floor((lt-0.6)/0.1)+1));$('dq').textContent=lt<0.6?'':q[i];$('dcur').style.opacity=(Math.floor(lt*5)%2)?.2:1;
+   for(let j=0;j<5;j++){const p2=eb(k(lt,1.1+j*0.07,0.3));const r=$('d'+j);r.style.opacity=k(lt,1.1+j*0.07,0.05);r.style.transform=`translateX(${(1-p2)*120}px) scale(${0.9+0.1*p2})`}
+   const dp=k(lt,1.6,0.5);$('ddraw').style.boxShadow=`0 0 0 ${3*Math.sin(dp*Math.PI)}px #EDF3F3`;
+ },
+ (lt,D)=>{ // scan full frame
+   slam($('t8a'),lt,0,{s0:2.2});slam($('t8b'),lt,B,{s0:2.2});slam($('t8c'),lt,2*B,{s0:2.6,r0:8});
+   const cam=$('scanpaper');const z=0;cam.style.transform=`translate(${-60*Math.sin(lt*1.3)+(-260)*z}px,${20*Math.sin(lt*1.7)+40*z}px) rotate(${-2+1.5*Math.sin(lt)}deg) scale(${1+0.25*z})`;cam.style.transformOrigin='600px 330px';
+   const lock=eo(k(lt,0.15,0.35));const box=[[210-60*(1-lock),180-50*(1-lock)],[1500+80*(1-lock),180-50*(1-lock)],[210-60*(1-lock),900+60*(1-lock)],[1500+80*(1-lock),900+60*(1-lock)]];
+   $('vf').querySelectorAll('.vfc').forEach((c,i)=>{c.style.left=(box[i][0]-(i%2?120:0))+'px';c.style.top=(box[i][1]-(i>1?120:0))+'px';c.style.opacity=1-k(lt,1.2,0.2)});
+   $('sbar').style.top=(150+800*((lt*1.4)%1))+'px';$('sbar').style.opacity=1-k(lt,0.9,0.1);
+   for(let i=0;i<3;i++){const a=0.45+i*0.12;const p=eb(k(lt,a,0.25));const b=$('sc'+i).querySelector('.box');b.style.opacity=k(lt,a,0.04);b.style.transform=`scale(${1.3-0.3*p})`;
+     $('sc'+i).querySelectorAll('.ul').forEach((u,j)=>{u.style.transform=`scaleX(${eo(k(lt,0.9+i*0.08+j*0.03,0.2))})`})}
+   const tt=2*B;const sp=$('sc0').querySelectorAll('span')[3].getBoundingClientRect();
+   touch($('t8touch'),lt,tt,sp.left+sp.width/2,sp.top+sp.height/2);
+   const pp=eb(k(lt,tt+0.08,0.3));const po=$('pop8');po.style.opacity=k(lt,tt+0.08,0.05);po.style.transform=`translateY(${(1-pp)*80}px) scale(${0.6+0.4*pp}) rotate(${(1-pp)*-6}deg)`;
+ },
+ (lt,D)=>{ // progress
+   const n=Math.max(1,Math.min(7,Math.floor((lt-0.2)/(B/2))+1));const big=$('t9n');big.textContent=lt<0.2?'1':n;
+   const ph=((lt-0.2)%(B/2))/(B/2);big.style.transform=`scale(${1+0.12*Math.exp(-ph*6)*(lt>0.2&&lt<3.6*B?1:0)}) rotate(${-3+2*Math.sin(lt*2)}deg)`;big.style.opacity=k(lt,0,0.1);
+   slam($('t9a'),lt,0.1,{s0:2.5,r0:-6});slam($('t9b'),lt,0.1+B,{s0:2.5,r0:6});
+   const p=ex(k(lt,0,0.5));rig('p9',{x:(1-p)*900,ry:lerp(-60,-16,p)+6*k(lt,0.5,D),rx:6,rz:(1-p)*-10,s:1.02});glint('p9',lt,1.4);
+   $('pcal').querySelectorAll('.fl').forEach((f,j)=>{const q=eb(k(lt,0.2+j*B/2,0.25));f.style.opacity=k(lt,0.2+j*B/2,0.04);f.style.transform=`scale(${q})`;f.style.transformOrigin='50% 80%'});
+   $('pn').textContent=lt<0.2?'1':n;
+   $('emb').querySelectorAll('i').forEach((e,i)=>{const sp=60+(i*53)%120;const x=(i*211)%1920+30*Math.sin(lt*2+i);const y=1100-((lt*sp*3+i*97)%1300);e.style.left=x+'px';e.style.top=y+'px';e.style.opacity=0.4+0.6*Math.abs(Math.sin(lt*4+i))});
+ },
+ (lt,D)=>{ // themes speed ramp
+   let idx;{const tq=lt-0.3;if(tq<0)idx=0;else{}
+     // accelerate: theme time per step shrinks from 0.16 to 0.035
+     let acc=0,s=0,st=0.16;while(acc<tq&&s<25){acc+=st;st=Math.max(0.035,st*0.86);if(acc<=tq)s++}idx=tq<0?0:s}
+   const P=PAL[idx],light=idx>=18;
+   $('bg10').style.background=`radial-gradient(1200px 900px at 70% 50%,#${P[3]},#${P[1]} 75%)`;
+   const scr=$('p10scr');scr.style.background=`linear-gradient(180deg,#${P[2]},#${P[3]})`;scr.style.color='#'+P[4];
+   scr.querySelectorAll('.card').forEach(c=>c.style.background=light?'rgba(0,0,0,.06)':'rgba(255,255,255,.06)');
+   ['t10n','t10a','t10t'].forEach(id=>$(id).style.color='#'+P[4]);$('t10t').textContent=P[0];
+   slam($('t10n'),lt,0,{s0:2.6,r0:-8});slam($('t10a'),lt,B*0.5,{s0:2.4,r0:6});
+   const tp=k(lt,0.3,0.06);$('t10t').style.opacity=tp;
+   const p=ex(k(lt,0,0.4));rig('p10',{y:(1-p)*900,ry:-14+4*Math.sin(lt*2),rx:6,rz:(1-p)*8,s:1.02+0.02*Math.sin(idx)});
+ },
+ (lt,D)=>{ // widgets
+   marq('m11',lt,600,1);
+   slam($('t11a'),lt,0,{s0:2.4,r0:-6});slam($('t11b'),lt,B,{s0:2.4,r0:6});slam($('t11c'),lt,2*B,{s0:2.4,r0:-6});
+   const p=ex(k(lt,0,0.5));rig('p11',{y:(1-p)*1000,ry:-10+4*Math.sin(lt*1.5),rx:8,s:0.92});
+   ['wA','wB','wC','wD'].forEach((id,i)=>{const a=i*B*0.5+0.1;const q=k(lt,a,0.24);const e=eb(q);const w=$(id);w.style.opacity=k(lt,a,0.04);
+     const dirs=[[600,-300],[700,200],[-600,400],[-500,-300]][i];w.style.transform=`translate(${dirs[0]*(1-ex(q))}px,${dirs[1]*(1-ex(q))+Math.sin(lt*2+i)*8}px) rotate(${(1-e)*(i%2?20:-20)+Math.sin(lt*1.5+i)*2}deg) scale(${lerp(0.3,1,e)})`});
+ },
+ (lt,D)=>{ // outro
+   ringsAnim('rings12',lt);
+   const p=k(lt,0,0.55);const ic=$('i12');ic.style.transform=`perspective(900px) rotateY(${(1-ex(p))*540}deg) scale(${lerp(3,1,ex(p))})`;ic.style.opacity=k(lt,0,0.05);
+   stagger('w12',lt,0.2,0.035);
+   slam($('a12'),lt,0.75,{s0:1.8,r0:0});slam($('b12'),lt,1.1,{s0:0.5,r0:0,dy:30});
+   $('o12').style.transform=`scale(${1+0.025*k(lt,0,D)})`;
+ }
+];
+
+// ---------- master render ----------
+const IRIS_D=0.32, SLICE_D=0.28;
+function render(t){
+  const tb=t/B;
+  SH.forEach((s,i)=>{
+    const a=s[0]*B,b=s[1]*B,sh=$('sh'+i),D=b-a,lt=t-a;
+    const next=SH[i+1];const tail=next&&next[3]==='iris'?IRIS_D:next&&next[3]==='slice'?SLICE_D:0;
+    if(t<a||t>=b+tail){sh.style.display='none';return}
+    sh.style.display='block';
+    let tr='',filt='',clip='none',op=1,mb=0;
+    // entry
+    if(s[3]==='iris'){const p=eio(k(lt,0,IRIS_D));clip=`circle(${p*1200}px at 50% 50%)`}
+    if(s[3]==='slice'){const p=eio(k(lt,0,SLICE_D));const x=lerp(-700,2620,p);clip=`polygon(${x-700}px 0,${x+300}px 0,${x-300}px 1080px,${x-1300}px 1080px)`;if(p>=1)clip='none';else clip=`polygon(0 0,${x+300}px 0,${x-300}px 1080px,0 1080px)`}
+    if(s[3]==='whip'){const p=k(lt,0,0.18);tr+=`translateX(${(1-ex(p))*1900}px) `;mb=Math.max(mb,(1-p)*120)}
+    if(s[3]==='zoom'){const p=k(lt,0,0.25);tr+=`scale(${lerp(0.4,1,ex(p))}) `;op=Math.min(op,cl(p*3));mb=0;filt+=`blur(${(1-ex(p))*20}px) `}
+    // exit
+    const lo=t-b+0.16;
+    if(s[4]==='whip'&&lo>0){const p=k(lo,0,0.16);tr+=`translateX(${-ex(p)*1900}px) `;mb=Math.max(mb,p*120)}
+    if(s[4]==='zoom'&&lo>0){const p=k(lo,0,0.16);tr+=`scale(${1+3*p*p}) `;op=Math.min(op,1-p);filt+=`blur(${p*20}px) `}
+    sh.style.clipPath=clip;sh.style.opacity=op;sh.style.transform=tr||'';
+    $('mbg'+i).setAttribute('stdDeviation',`${mb.toFixed(1)} 0`);
+    sh.style.filter=(mb>0.5?`url(#mb${i}) `:'')+filt||'none';
+    R[i](Math.min(lt,D+tail),D);
+    if(i===3){}
+  });
+  // camera shake + rgb
+  let sx=0,sy=0,rg=0;
+  HITS.forEach(h=>{const dt=t-h*B;if(dt>=0&&dt<0.5){const a=Math.exp(-dt*14);sx+=a*22*Math.sin(dt*90+h);sy+=a*16*Math.cos(dt*77+h*3);rg+=a*16}});
+  W.style.transform=`translate(${sx}px,${sy}px) rotate(${sx*0.03}deg)`;
+  $('rdx').setAttribute('dx',rg.toFixed(1));$('bdx').setAttribute('dx',(-rg).toFixed(1));
+  W.style.filter=rg>0.6?'url(#rgb)':'none';
+  let fl=0;FLASH.forEach(([h,a])=>{const dt=t-h*B;if(dt>=0)fl=Math.max(fl,a*Math.exp(-dt*9))});$('flash').style.opacity=fl;
+  $('turb').setAttribute('seed',Math.floor(t*30)%17+1);
+}
+window.render=render;
+</script></body></html>

@@ -1,0 +1,499 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Inter;src:url(inter.ttf);font-weight:100 900}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:#111D20}
+body{font-family:Inter,'Noto Sans CJK JP',sans-serif;color:#EDF3F3;-webkit-font-smoothing:antialiased}
+.jp{font-family:'Noto Sans CJK JP',Inter,sans-serif}
+#stage{position:absolute;inset:0;overflow:hidden;background:radial-gradient(1400px 900px at 75% 40%,#1F3438 0%,#152427 45%,#0E181A 100%)}
+#wm{position:absolute;right:-120px;top:-140px;width:1300px;height:1300px;opacity:.05}
+#glow{position:absolute;inset:0;background:radial-gradient(900px 600px at 70% 50%,rgba(63,168,119,.18),transparent 70%);opacity:0}
+.scene{position:absolute;inset:0;opacity:0}
+.hl{position:absolute;left:140px;top:50%;transform:translateY(-50%);width:820px}
+.hl h1{font-size:104px;line-height:1.02;font-weight:800;letter-spacing:-3px}
+.hl p{margin-top:28px;font-size:40px;line-height:1.3;color:#93A6A8;font-weight:500}
+.w{display:inline-block;will-change:transform}
+.g{color:#3FA877}.f{color:#FF9A3D}.r{color:#E0605A}
+/* phone */
+.phone{position:absolute;width:440px;height:910px;border-radius:64px;background:#0A1214;padding:12px;box-shadow:0 60px 120px rgba(0,0,0,.55),0 0 0 2px #1E2D30 inset}
+.screen{position:relative;width:100%;height:100%;border-radius:52px;overflow:hidden;background:linear-gradient(180deg,#172629 0%,#1C2F33 60%,#253B3F 100%);padding:58px 26px 0}
+.cam{position:absolute;top:18px;left:50%;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:#050a0b}
+.kick{font-size:12px;letter-spacing:1.6px;font-weight:600;color:#93A6A8;text-transform:uppercase}
+.ttl{font-size:44px;font-weight:500;margin-top:4px;letter-spacing:-.5px}
+.sub{font-size:17px;color:#93A6A8;margin-top:4px}
+.card{background:rgba(42,66,71,.55);border-radius:22px;border:1px solid rgba(255,255,255,.06)}
+.nav{position:absolute;bottom:34px;left:50%;transform:translateX(-50%);display:flex;gap:10px;background:rgba(10,18,20,.55);padding:8px;border-radius:22px}
+.nav i{width:50px;height:50px;border-radius:15px;background:rgba(42,66,71,.8);display:block}
+.nav i.on{background:#EDF3F3}
+.btnc{width:68px;height:68px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.lbl{font-size:15px;color:#C9D6D7;margin-top:8px;text-align:center}
+.pill{background:#EDF3F3;color:#111D20;border-radius:14px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.touch{position:absolute;width:90px;height:90px;margin:-45px 0 0 -45px;border-radius:50%;background:rgba(255,255,255,.35);border:3px solid rgba(255,255,255,.7);opacity:0;pointer-events:none;z-index:50}
+.row{display:flex;align-items:center;gap:14px;padding:14px;margin-top:10px}
+.kbox{width:62px;height:62px;border-radius:14px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none}
+.tag{font-size:11px;letter-spacing:1.4px;color:#93A6A8;font-weight:600}
+.mean{font-size:17px;margin-top:3px;line-height:1.25}
+/* widgets */
+.wid{position:absolute;background:rgba(28,42,45,.95);border-radius:36px;box-shadow:0 40px 80px rgba(0,0,0,.45)}
+.chip{display:inline-flex;align-items:center;gap:10px;padding:14px 24px;border-radius:40px;background:rgba(237,243,243,.08);border:1px solid rgba(237,243,243,.14);font-size:26px;font-weight:600;margin:0 12px 14px 0}
+.chip b{width:10px;height:10px;border-radius:50%}
+.tile{width:118px;height:118px;border-radius:20px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,.1)}
+.tile .c{font-size:40px;font-family:'Noto Sans CJK JP'}
+.tile .d{display:flex;gap:4px;margin-top:6px}.tile .d i{width:6px;height:6px;border-radius:50%;display:block}
+.tile .n{position:absolute;bottom:-26px;font-size:15px;color:#93A6A8;width:100%;text-align:center}
+.game{position:absolute;width:440px;height:330px;border-radius:30px;padding:30px;background:rgba(42,66,71,.6);border:1px solid rgba(255,255,255,.08);box-shadow:0 30px 60px rgba(0,0,0,.35)}
+.game .gt{font-size:32px;font-weight:700;margin-top:6px}
+.opt{display:inline-block;padding:9px 16px;border-radius:12px;background:rgba(255,255,255,.08);font-size:17px;margin:0 8px 8px 0}
+
+#stage{background:radial-gradient(1200px 900px at 72% 50%,#12282B 0%,#081012 55%,#030606 100%)}
+#wm{opacity:.028}
+#glow{background:radial-gradient(700px 520px at 72% 50%,rgba(63,168,119,.20),transparent 70%)}
+.scene{transform-origin:50% 50%}
+.hl h1 .w,#s1t .w{background:linear-gradient(180deg,#FFFFFF 25%,#9FB3B5 100%);-webkit-background-clip:text;background-clip:text;color:transparent;padding-bottom:.08em}
+.hl h1 .w.g{background-image:linear-gradient(180deg,#B5FAD6 0%,#3FA877 90%)}
+.hl h1 .w.f{background-image:linear-gradient(180deg,#FFE0AE 0%,#FF7A3D 90%)}
+#s1n{background:linear-gradient(180deg,#FFD9A0 0%,#FF9A3D 45%,#E8505A 100%);-webkit-background-clip:text;background-clip:text;color:transparent!important}
+#s3h,#s11h{background:linear-gradient(180deg,#FFFFFF 30%,#8FA5A7);-webkit-background-clip:text;background-clip:text;color:transparent}
+.rig{position:absolute;transform-style:preserve-3d;will-change:transform}
+.rig .slab{position:absolute;inset:0;border-radius:64px;background:linear-gradient(90deg,#3A4A4D,#1A2426 40%,#2C3A3D);}
+.rig .phone{left:0!important;top:0!important;position:absolute}
+.glint{position:absolute;inset:0;border-radius:52px;pointer-events:none;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.16) 47%,rgba(255,255,255,.05) 53%,transparent 62%);background-size:300% 100%;z-index:60}
+#bigseven{position:absolute;left:480px;top:20px;font-size:1000px;font-weight:900;line-height:1;letter-spacing:-40px;background:linear-gradient(180deg,rgba(255,154,61,.22),rgba(255,154,61,0) 85%);-webkit-background-clip:text;background-clip:text;color:transparent}
+</style></head><body>
+<div id="stage">
+ <svg id="wm" viewBox="36 36 36 36"><path id="kpath" fill="#EDF3F3" d=""/></svg>
+ <div id="glow"></div>
+
+ <!-- S1 hook -->
+ <div class="scene" id="s1">
+  <div style="position:absolute;left:0;right:0;top:250px;text-align:center">
+   <div id="s1n" style="font-size:300px;font-weight:800;letter-spacing:-12px;line-height:1" class="f">200×</div>
+   <div id="s1t" style="font-size:72px;font-weight:700;margin-top:36px;letter-spacing:-1.5px"></div>
+  </div>
+ </div>
+
+ <!-- S2 widget -->
+ <div class="scene" id="s2">
+  <div class="hl"><h1 id="s2h"></h1><p id="s2p">Right on your home screen.</p></div>
+  <div id="s2home" style="position:absolute;left:960px;top:150px;width:820px;height:780px;border-radius:56px;overflow:hidden;background:linear-gradient(135deg,#9FB3B5 0%,#3E5A5E 45%,#5C6B66 70%,#D7C3A2 100%);box-shadow:0 60px 120px rgba(0,0,0,.5)">
+   <div id="s2icons" style="position:absolute;left:70px;right:70px;bottom:70px;display:grid;grid-template-columns:repeat(5,1fr);gap:40px 0">
+   </div>
+   <div id="s2wid" class="wid" style="left:60px;top:150px;width:700px;height:330px;background:rgba(28,42,45,.92)">
+    <div style="position:absolute;left:44px;top:34px;font-size:120px;font-weight:500" class="jp">花火</div>
+    <div style="position:absolute;left:330px;top:54px">
+      <div class="jp" style="font-size:32px;color:#C9D6D7">はなび</div>
+      <div style="font-size:34px;font-weight:700;margin-top:2px">fireworks</div>
+      <div class="jp" style="font-size:22px;color:#93A6A8;margin-top:8px;white-space:nowrap">すごい花火だ！ · These fire…</div>
+    </div>
+    <div style="position:absolute;left:0;right:0;bottom:36px;display:flex;justify-content:center;gap:48px">
+      <div class="btnc" style="background:#E0605A"><svg width="30" height="30" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg></div>
+      <div class="btnc" style="background:#56696C"><svg width="30" height="30" viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.05-4.95M19 4v4h-4" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div id="s2ok" class="btnc" style="background:#3FA877"><svg width="32" height="32" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#fff" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    </div>
+   </div>
+   <div id="s2toast" style="position:absolute;left:50%;top:540px;transform:translateX(-50%);background:#EDF3F3;color:#111D20;font-size:28px;font-weight:700;padding:18px 34px;border-radius:40px;white-space:nowrap;opacity:0">✓ 花火 added to your deck</div>
+   <div class="touch" id="s2touch"></div>
+  </div>
+ </div>
+
+ <!-- S3 brand + today -->
+ <div class="scene" id="s3">
+  <div class="hl" style="top:50%">
+   <div id="s3icon" style="width:190px;height:190px;border-radius:46px;background:#16262A;box-shadow:0 30px 60px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center">
+    <svg width="190" height="190" viewBox="22 22 64 64"><path d="M43,30h22a13,13 0 0 1 13,13v22a13,13 0 0 1 -13,13h-22a13,13 0 0 1 -13,-13v-22a13,13 0 0 1 13,-13z" fill="rgba(255,255,255,.09)" stroke="rgba(255,255,255,.18)" stroke-width=".8"/><path class="kp" fill="#EDF3F3" d=""/></svg>
+   </div>
+   <h1 id="s3h" style="font-size:150px;letter-spacing:-5px;margin-top:40px">KanjiLock</h1>
+   <p id="s3p" style="font-size:44px;color:#C9D6D7">A Japanese word a day.<br>Keep it, toss it, or reroll it.</p>
+  </div>
+  <div class="phone" id="s3ph" style="left:1250px;top:85px"><div class="screen"><div class="cam"></div>
+   <div class="kick">Oct 2026</div><div class="ttl">Today</div><div class="sub">Wed, 7 Oct</div>
+   <div class="card" style="margin-top:22px;padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:17px">3 words today</span><span style="font-size:15px;color:#93A6A8">‹ 1/3 ›</span></div>
+    <div id="s3card" class="card" style="margin-top:14px;padding:16px;background:rgba(80,105,110,.35);height:278px;position:relative;overflow:hidden">
+     <div class="kick" style="font-size:11px">☀ Wed, 7 Oct</div>
+     <div id="s3a" style="position:absolute;left:16px;right:16px;top:44px">
+      <div style="display:flex;gap:16px;align-items:center"><div class="jp" style="width:118px;height:100px;border-radius:16px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:52px;font-weight:500">花火</div>
+      <div><div class="jp" style="font-size:20px;color:#93A6A8">はなび</div><div style="font-size:24px;font-weight:600">fireworks</div></div></div>
+      <div style="border-top:1px solid rgba(255,255,255,.1);margin-top:16px;padding-top:12px"><div class="tag">EXAMPLE</div><div class="jp" style="font-size:17px;margin-top:6px">すごい花火だ！</div><div style="font-size:14px;color:#93A6A8;margin-top:2px">These fireworks are spectacular!</div></div>
+     </div>
+     <div id="s3b" style="position:absolute;left:16px;right:16px;top:44px;opacity:0">
+      <div style="display:flex;gap:16px;align-items:center"><div class="jp" style="width:118px;height:100px;border-radius:16px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:52px;font-weight:500">勉強</div>
+      <div><div class="jp" style="font-size:20px;color:#93A6A8">べんきょう</div><div style="font-size:24px;font-weight:600;line-height:1.15">study; diligence</div></div></div>
+      <div style="border-top:1px solid rgba(255,255,255,.1);margin-top:16px;padding-top:12px"><div class="tag">EXAMPLE</div><div class="jp" style="font-size:17px;margin-top:6px">日本語を勉強しています。</div><div style="font-size:14px;color:#93A6A8;margin-top:2px">I am studying Japanese.</div></div>
+     </div>
+    </div>
+   </div>
+   <div style="display:flex;justify-content:center;gap:44px;margin-top:26px">
+    <div><div class="btnc" style="background:#E0605A;margin:auto"><svg width="26" height="26" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg></div><div class="lbl">Reject</div></div>
+    <div><div id="s3new" class="btnc" style="background:#56696C;margin:auto"><svg width="26" height="26" viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.05-4.95M19 4v4h-4" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="lbl">New word</div></div>
+    <div><div id="s3add" class="btnc" style="background:#3FA877;margin:auto"><svg width="28" height="28" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#fff" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="lbl">Add</div></div>
+   </div>
+   <div class="card" style="margin-top:22px;padding:16px 18px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:18px">Review</div><div id="s3rev" style="font-size:14px;color:#93A6A8;margin-top:2px">12 cards waiting</div></div><div class="pill" style="width:76px;height:42px;font-size:16px">Study</div></div>
+   <div class="nav"><i class="on"></i><i></i><i></i><i></i></div>
+   <div class="touch" id="s3touch"></div>
+  </div></div>
+ </div>
+
+ <!-- S4 study -->
+ <div class="scene" id="s4">
+  <div class="hl"><h1 id="s4h"></h1><p id="s4p">Spaced repetition schedules every card for you.</p></div>
+  <div class="phone" id="s4ph" style="left:1250px;top:85px"><div class="screen"><div class="cam"></div>
+   <div class="kick">Your deck</div><div class="ttl">Study</div><div class="sub">4 decks</div>
+   <div style="display:flex;gap:10px;margin-top:18px">
+    <div class="card" style="flex:1;padding:12px 14px"><div class="tag" style="color:#FF9A3D">● KANJILOCK</div><div style="font-size:15px;margin-top:6px">Accepted words</div></div>
+    <div class="card" style="flex:1;padding:12px 14px;border:2px solid #EDF3F3"><div class="tag" style="color:#5B9BD5">● ANKI</div><div style="font-size:15px;margin-top:6px">JLPT N5 Vocab</div></div>
+   </div>
+   <div style="display:flex;gap:10px;margin-top:10px">
+    <div class="card" style="flex:1;padding:10px 14px"><div style="font-size:13px;color:#93A6A8"><span style="color:#5B9BD5">●</span> New</div><div style="font-size:28px">10</div></div>
+    <div class="card" style="flex:1;padding:10px 14px"><div style="font-size:13px;color:#93A6A8"><span style="color:#D9A54A">●</span> Learning</div><div style="font-size:28px">2</div></div>
+    <div class="card" style="flex:1;padding:10px 14px"><div style="font-size:13px;color:#93A6A8"><span style="color:#3FA877">●</span> Review</div><div id="s4rv" style="font-size:28px">31</div></div>
+   </div>
+   <div class="card" style="margin-top:14px;padding:18px;height:300px;position:relative">
+    <div style="display:flex;justify-content:space-between"><span class="tag">TYPE THE READING!</span><span class="tag">REVIEW</span></div>
+    <div class="jp" style="text-align:center;font-size:66px;font-weight:600;margin-top:22px">食べる</div>
+    <div id="s4in" class="jp" style="margin-top:24px;height:64px;border-radius:14px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:28px;border:2px solid transparent"></div>
+    <div id="s4ans" style="text-align:center;margin-top:14px;font-size:18px;color:#3FA877;opacity:0">✓ たべる · to eat</div>
+   </div>
+   <div id="s4grades" style="display:flex;gap:8px;margin-top:14px">
+    <div class="pill" style="flex:1;height:52px;background:#E0605A;color:#fff">Again</div>
+    <div class="pill" style="flex:1;height:52px;background:#D9A54A;color:#fff">Hard</div>
+    <div id="s4good" class="pill" style="flex:1;height:52px;background:#3FA877;color:#fff">Good</div>
+    <div class="pill" style="flex:1;height:52px;background:#5B9BD5;color:#fff">Easy</div>
+   </div>
+   <div class="nav"><i></i><i class="on"></i><i></i><i></i></div><div class="touch" id="s4touch"></div>
+  </div></div>
+ </div>
+
+ <!-- S5 practice -->
+ <div class="scene" id="s5">
+  <div class="hl" style="width:640px"><h1 id="s5h"></h1><p id="s5p">Practice never touches your deck.</p></div>
+  <div class="game" id="g1" style="left:880px;top:150px"><div class="tag">TYPE THE READING</div><div class="gt">Reading</div><div class="jp" style="font-size:64px;margin-top:22px;font-weight:600">花火</div><div id="g1t" class="jp" style="font-size:26px;color:#3FA877;margin-top:6px">はなび ✓</div></div>
+  <div class="game" id="g2" style="left:1350px;top:150px"><div class="tag">WHAT DOES IT MEAN</div><div class="gt">Meaning</div><div class="jp" style="font-size:52px;margin:16px 0 14px;font-weight:600">勉強</div><span class="opt">food</span><span class="opt" id="g2c">study</span><span class="opt">fireworks</span><span class="opt">school</span></div>
+  <div class="game" id="g3" style="left:880px;top:510px"><div class="tag">WHICH WORD IS IT</div><div class="gt">Reverse</div><div style="font-size:34px;margin:18px 0 16px;font-weight:600">“fireworks”</div><span class="opt jp">食べ物</span><span class="opt jp" id="g3c">花火</span><span class="opt jp">学校</span><span class="opt jp">本</span></div>
+  <div class="game" id="g4" style="left:1350px;top:510px"><div class="tag">WHAT DID YOU HEAR</div><div class="gt">Listen</div><div id="g4w" style="display:flex;gap:7px;align-items:center;height:110px;margin-top:16px"></div><div class="jp" style="font-size:24px;color:#93A6A8">たべもの</div></div>
+  <div id="s5ach" style="position:absolute;left:880px;top:52px;width:910px;height:110px;opacity:0">
+   <div style="position:absolute;left:70px;right:0;top:12px;height:86px;border-radius:44px;background:rgba(30,46,49,.97);border:1px solid rgba(255,255,255,.12);box-shadow:0 20px 50px rgba(0,0,0,.5)"></div>
+   <div style="position:absolute;left:30px;top:0;width:110px;height:110px;border-radius:50%;background:#2A4247;display:flex;align-items:center;justify-content:center"><svg width="56" height="56" viewBox="0 0 24 24"><path d="M7 3h10v3h3v2a4 4 0 0 1-4 4h-.3A5 5 0 0 1 13 14.9V18h3v3H8v-3h3v-3.1A5 5 0 0 1 8.3 12H8a4 4 0 0 1-4-4V6h3zM4 6v2a2 2 0 0 0 3 1.7V6zm16 0h-3v3.7A2 2 0 0 0 20 8z" fill="#F5C518"/></svg></div>
+   <div style="position:absolute;left:170px;top:22px"><div style="font-size:30px;font-weight:700">Unstoppable</div><div style="font-size:22px;color:#93A6A8;margin-top:2px">25 readings right in a row</div></div>
+  </div>
+ </div>
+
+ <!-- S6 dictionary -->
+ <div class="scene" id="s6">
+  <div class="hl"><h1 id="s6h"></h1><p id="s6p">Can't type it? Draw the kanji.</p></div>
+  <div class="phone" id="s6ph" style="left:1250px;top:85px"><div class="screen"><div class="cam"></div>
+   <div class="kick">Dictionary</div><div class="ttl">Look it up</div><div class="sub">213,177 words · 13,108 kanji, all offline</div>
+   <div class="card" style="margin-top:18px;height:54px;display:flex;align-items:center;padding:0 16px;gap:10px"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6.5" stroke="#93A6A8" stroke-width="2.2" fill="none"/><path d="M15 15l5 5" stroke="#93A6A8" stroke-width="2.2" stroke-linecap="round"/></svg><span id="s6q" class="jp" style="font-size:19px"></span><span id="s6cur" style="width:2px;height:22px;background:#EDF3F3"></span></div>
+   <div style="display:flex;gap:10px;margin-top:10px"><div id="s6draw" class="card" style="flex:1;height:48px;display:flex;align-items:center;justify-content:center;font-size:16px">✎ Draw a kanji</div><div class="card" style="flex:1;height:48px;display:flex;align-items:center;justify-content:center;font-size:16px">◉ Scan text</div></div>
+   <div id="s6list"></div><div class="nav"><i></i><i></i><i class="on"></i><i></i></div>
+  </div></div>
+ </div>
+
+ <!-- S7 scan -->
+ <div class="scene" id="s7">
+  <div class="hl"><h1 id="s7h"></h1><p id="s7p">Point the camera at Japanese. It finds every word.</p></div>
+  <div class="phone" id="s7ph" style="left:1250px;top:85px"><div class="screen" style="padding-top:150px;background:#0E181A"><div class="cam"></div>
+   <div class="card" style="position:absolute;left:0;right:0;top:120px;bottom:0;border-radius:30px 30px 0 0;padding:26px 22px;background:#1C2D30">
+    <div style="font-size:26px">Scan Japanese text</div><div style="font-size:14px;color:#93A6A8;margin-top:2px">Point at the text, it freezes when it finds some.</div>
+    <div style="margin-top:16px;height:250px;border-radius:20px;background:radial-gradient(ellipse at 40% 40%,#F1EBDD,#CFC6B2 70%,#A79E8B);position:relative;overflow:hidden">
+     <div id="scl" class="jp" style="position:absolute;left:18px;top:22px;color:#2a2622;font-size:23px;line-height:1"></div>
+     <div id="s7bar" style="position:absolute;left:0;right:0;height:3px;background:#3FA877;box-shadow:0 0 18px #3FA877"></div>
+    </div>
+    <div id="s7found" style="font-size:15px;color:#93A6A8;margin-top:14px">9 words found</div>
+    <div class="card" style="margin-top:10px;padding:14px 16px;background:rgba(255,255,255,.04)" id="s7lines"></div>
+    <div id="s7pop" style="position:absolute;left:30px;right:30px;top:440px;padding:18px 20px;border-radius:20px;background:#EDF3F3;color:#111D20;opacity:0;box-shadow:0 20px 50px rgba(0,0,0,.5)">
+     <div style="display:flex;gap:14px;align-items:center"><div class="jp" style="font-size:44px;font-weight:600">勉強</div><div><div class="jp" style="font-size:17px;color:#55606a">べんきょう</div><div style="font-size:20px;font-weight:600">study; diligence</div></div></div>
+    </div>
+   </div>
+   <div class="touch" id="s7touch"></div>
+  </div></div>
+ </div>
+
+ <!-- S8 progress -->
+ <div class="scene" id="s8"><div id="bigseven">7</div>
+  <div class="hl"><h1 id="s8h"></h1><p id="s8p">Streaks, a flame calendar, stats and achievements.</p></div>
+  <div class="phone" id="s8ph" style="left:1250px;top:85px"><div class="screen"><div class="cam"></div>
+   <div class="kick">Your deck</div><div class="ttl">Progress</div><div class="sub">JLPT N5 Vocab</div>
+   <div class="card" style="margin-top:18px;padding:18px">
+    <div style="display:flex;align-items:center;gap:10px"><svg id="s8fl" width="40" height="46" viewBox="0 0 24 28"><path d="M12 1c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6 0 2 1 3.5 2.5 4C10 9 11 5 12 1z" fill="#FF9A3D"/></svg><span id="s8n" style="font-size:52px;font-weight:600">1</span><span style="margin-left:auto;font-size:14px;color:#93A6A8">Best 7</span></div>
+    <div style="font-size:15px;color:#93A6A8">Day streak · today's done</div>
+    <div style="display:flex;justify-content:space-around;margin-top:14px;padding:12px;border-radius:14px;background:rgba(255,255,255,.06);font-size:15px;color:#93A6A8"><span><b style="font-size:24px;color:#EDF3F3;font-weight:500">48</b> In deck</span><span><b style="font-size:24px;color:#EDF3F3;font-weight:500">12</b> Due</span><span><b style="font-size:24px;color:#EDF3F3;font-weight:500">9</b> Mined</span></div>
+    <div style="font-size:19px;margin-top:16px">October 2026</div><div style="font-size:13px;color:#93A6A8">7 flame days</div>
+    <div id="s8cal" style="display:grid;grid-template-columns:repeat(7,1fr);row-gap:10px;margin-top:10px;text-align:center;font-size:14px;color:#63777A"></div>
+   </div>
+   <div class="card" style="margin-top:12px;padding:14px 16px"><div style="font-size:18px">Insights</div>
+    <div style="display:flex;gap:8px;margin-top:10px"><div style="flex:1;padding:10px;border-radius:12px;background:rgba(255,255,255,.06)"><div style="font-size:24px">23</div><div style="font-size:11px;color:#93A6A8">Reviews today</div></div><div style="flex:1;padding:10px;border-radius:12px;background:rgba(255,255,255,.06)"><div style="font-size:24px">91%</div><div style="font-size:11px;color:#93A6A8">Retention 30d</div></div><div style="flex:1;padding:10px;border-radius:12px;background:rgba(255,255,255,.06)"><div style="font-size:24px">24</div><div style="font-size:11px;color:#93A6A8">Mature</div></div></div>
+   </div>
+  </div></div>
+ </div>
+
+ <!-- S9 themes -->
+ <div class="scene" id="s9">
+  <div class="hl" style="width:640px"><h1 id="s9h" style="font-size:150px;letter-spacing:-5px"></h1><p id="s9p">18 dark, 8 light.<br><span id="s9name" style="color:#EDF3F3;font-weight:700">Teal</span></p></div>
+  <div id="s9grid" style="position:absolute;left:860px;top:110px;width:960px;display:grid;grid-template-columns:repeat(7,118px);gap:46px 20px"></div>
+ </div>
+
+ <!-- S10 widgets + decks -->
+ <div class="scene" id="s10">
+  <div class="hl" style="top:330px;transform:none;width:700px"><h1 id="s10h"></h1>
+   <div id="s10chips" style="margin-top:40px;width:720px"></div></div>
+  <div id="w1" class="wid" style="left:900px;top:120px;width:580px;height:270px">
+    <div class="jp" style="position:absolute;left:36px;top:30px;font-size:96px;font-weight:500">花火</div>
+    <div style="position:absolute;left:270px;top:44px"><div class="jp" style="font-size:26px;color:#C9D6D7">はなび</div><div style="font-size:28px;font-weight:700">fireworks</div></div>
+    <div style="position:absolute;left:0;right:0;bottom:30px;display:flex;justify-content:center;gap:40px"><div class="btnc" style="background:#E0605A;width:58px;height:58px"><svg width="24" height="24" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg></div><div class="btnc" style="background:#56696C;width:58px;height:58px"><svg width="24" height="24" viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.05-4.95M19 4v4h-4" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="btnc" style="background:#3FA877;width:58px;height:58px"><svg width="26" height="26" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#fff" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+  </div>
+  <div id="w2" class="wid" style="left:1510px;top:120px;width:270px;height:270px;display:flex;align-items:center;justify-content:center"><span class="jp" style="font-size:150px;font-weight:500">花</span></div>
+  <div id="w3" class="wid" style="left:900px;top:420px;width:420px;height:270px;padding:30px 34px">
+    <div style="display:flex;align-items:center;gap:12px"><svg width="44" height="52" viewBox="0 0 24 28"><path d="M12 1c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6 0 2 1 3.5 2.5 4C10 9 11 5 12 1z" fill="#FF9A3D"/></svg><span style="font-size:72px;font-weight:700">7</span><span style="font-size:24px;color:#A9BABC;margin-top:20px">day streak</span></div>
+    <div style="font-size:18px;color:#A9BABC;margin-top:4px">Done today · best 7</div>
+    <div style="display:flex;gap:12px;margin-top:22px" id="w3f"></div>
+  </div>
+  <div id="w4" class="wid" style="left:1350px;top:420px;width:430px;height:270px;padding:30px 34px">
+    <div style="font-size:72px;font-weight:700">12</div><div style="font-size:24px;color:#A9BABC">cards due</div><div style="font-size:18px;color:#A9BABC;margin-top:4px">3 new · 9 review</div>
+    <div class="pill" style="position:absolute;right:30px;bottom:30px;width:120px;height:54px;font-size:20px">Study</div>
+  </div>
+  <div id="s10cap" style="position:absolute;left:900px;top:730px;font-size:24px;color:#93A6A8">Word card · Kanji tile · Streak · Cards due</div>
+ </div>
+
+ <!-- S11 outro -->
+ <div class="scene" id="s11">
+  <div style="position:absolute;left:0;right:0;top:170px;display:flex;flex-direction:column;align-items:center">
+   <div id="s11icon" style="width:200px;height:200px;border-radius:48px;background:#16262A;box-shadow:0 30px 70px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center">
+    <svg width="200" height="200" viewBox="22 22 64 64"><path d="M43,30h22a13,13 0 0 1 13,13v22a13,13 0 0 1 -13,13h-22a13,13 0 0 1 -13,-13v-22a13,13 0 0 1 13,-13z" fill="rgba(255,255,255,.09)" stroke="rgba(255,255,255,.18)" stroke-width=".8"/><path class="kp" fill="#EDF3F3" d=""/></svg>
+   </div>
+   <div id="s11h" style="font-size:150px;font-weight:800;letter-spacing:-5px;margin-top:30px">KanjiLock</div>
+   <div id="s11a" style="font-size:44px;font-weight:700;margin-top:10px">No accounts. No ads. No tracking.</div>
+   <div id="s11b" style="font-size:32px;color:#93A6A8;margin-top:22px">Free &amp; open source · Android 8.0+ · github.com/Jideeh1/KanjiLock</div>
+  </div>
+ </div>
+</div>
+
+<script>
+const KP="M47.17 55.39C47.01 57.5 46.76 59.99 46.48 61.63L47.05 61.82C47.96 60.53 48.88 58.7 49.57 57.12C50.2 57.12 50.58 56.87 50.74 56.46ZM40.33 55.51 39.89 55.61C40.36 57.34 40.64 59.87 40.39 61.88C42.25 64.15 45.030 59.8 40.33 55.51ZM55.12 46.84 55.34 47.72H59.16V51.07H56.76L56.95 51.63L54.74 49.74L53.16 51.38H52.91C53.86 48.67 54.96 45.26 55.56 43.28C55.91 43.25 56.22 43.18 56.48 43.06L56.63 43.59H59.16V46.84ZM62.18 43.59H63.82V46.84H62.18ZM50.93 54.91 50.58 55.04C50.89 57.56 51.34 59.61 51.93 61.28C50.99 64.03 49.51 66.49 47.14 68.41L47.42 68.82C49.95 67.47 51.75 65.73 53.07 63.78C55.12 67.25 58.34 68.25 62.97 68.25C64.04 68.25 66.41 68.25 67.48 68.25C67.48 66.8 68.02 65.54 69.09 65.29V64.91C67.58 64.94 64.52 64.94 63.19 64.94C59.09 64.94 56.19 64.310 54.11 62.01C55.53 59.17 56.13 55.96 56.51 52.71C57.14 52.64 57.42 52.52 57.64 52.23L57.33 51.95H59.16V55.36H56.38L56.63 56.27H59.16V59.64H55.66L55.91 60.56H59.16V64.31H59.76C60.89 64.31 62.18 63.65 62.18 63.3V60.56H67.07C67.51 60.56 67.8 60.4 67.86 60.05C66.85 58.98 65.08 57.44 65.08 57.44L63.54 59.64H62.18V56.27H66.38C66.79 56.27 67.07 56.11 67.17 55.77C66.19 54.73 64.52 53.27 64.52 53.27L63.04 55.36H62.18V51.95H63.82V53.18H64.3C65.27 53.18 66.76 52.58 66.79 52.36V47.72H68.74C69.15 47.72 69.44 47.57 69.5 47.22C68.9 46.37 67.730 45.11 67.73 45.11L66.79 46.75V43.94C67.29 43.85 67.67 43.62 67.83 43.44L64.96 41.23L63.54 42.71H62.18V40.63C62.94 40.5 63.19 40.22 63.26 39.78L59.16 39.4V42.71H56.95L53.89 40.25L52.5 41.83H49.54L49.79 42.71H52.6C51.84 45.45 50.61 49.46 49.47 52.55C50.8 52.93 51.71 52.9 52.47 52.64L52.6 52.3H53.45C53.32 54.76 53.04 57.22 52.47 59.49C51.870 58.26 51.37 56.74 50.93 54.91ZM62.18 51.07V47.72H63.82V51.07ZM39 64.75 40.96 68.6C41.31 68.51 41.62 68.22 41.75 67.78C46.01 65.57 48.94 63.84 50.86 62.61L50.77 62.23L46.1 63.3V54.16H49.7C50.14 54.16 50.45 54 50.52 53.68L49.47 52.55L47.87 50.97L46.38 53.27H46.1V49.4H49.03C49.47 49.4 49.76 49.24 49.85 48.89C48.84 47.82 47.08 46.24 47.08 46.24L45.53 48.51H41.46C43.2 46.62 44.65 44.38 45.6 42.33C46.51 43.59 47.2 44.95 47.52 45.93C49.76 47.82 53.16 43.34 46.01 41.39C46.79 41.32 47.14 41.07 47.24 40.69L42.76 39.18C42.25 42.43 40.52 47.69 38.5 50.66L38.82 50.91C39.7 50.28 40.52 49.52 41.31 48.670L41.5 49.4H43.29V53.27H39.45L39.7 54.16H43.29V63.93C41.46 64.31 39.95 64.6 39 64.75Z";
+document.getElementById('kpath').setAttribute('d',KP);
+document.querySelectorAll('.kp').forEach(p=>p.setAttribute('d',KP));
+
+const B=60/128;
+const SC=[[0,5],[5,11],[11,17],[17,24],[24,29],[29,35],[35,40],[40,46],[46,50],[50,55],[55,61]].map(([a,b])=>[a*B,b*B]);
+window.DURATION=61*B;
+const $=id=>document.getElementById(id);
+const cl=x=>Math.max(0,Math.min(1,x));
+const k=(t,a,d)=>cl((t-a)/d);
+const eo=x=>1-Math.pow(1-x,3);
+const eb=x=>{const c=1.7,c3=c+1;return 1+c3*Math.pow(x-1,3)+c*Math.pow(x-1,2)};
+function st(el,o,x=0,y=0,s=1){el.style.opacity=o;el.style.transform=`translate(${x}px,${y}px) scale(${s})`}
+
+function words(el,txt){el.innerHTML=txt.split(' ').map(w=>{const m=w.match(/^([gf]):(.*)$/);return m?`<span class="w ${m[1]}">${m[2]}</span>`:`<span class="w">${w}</span>`}).join(' ');}
+words($('s1t'),'a day, you pick up your phone.');
+words($('s2h'),'Make one of them g:count.');
+words($('s4h'),'Anki-style g:reviews.');
+words($('s5h'),'4 games. Plus f:Focus mode.');
+words($('s6h'),'213,177 words. g:Fully g:offline.');
+words($('s7h'),'Point. Scan. Tap any g:word.');
+words($('s8h'),'Keep the f:flame f:alive.');
+words($('s9h'),'26 themes.');
+words($('s10h'),'Widgets. Decks. g:Sync.');
+function animWords(el,lt,start=0.05,gap=0.045){
+  el.querySelectorAll('.w').forEach((w,i)=>{const p=eo(k(lt,start+i*gap,0.32));st(w,p,0,(1-p)*70,0.9+0.1*p)});
+}
+function fadeUp(el,lt,start,d=0.35,dist=30){const p=eo(k(lt,start,d));st(el,p,0,(1-p)*dist)}
+function touch(el,lt,at,x,y){const p=k(lt,at-0.12,0.42);el.style.left=x+'px';el.style.top=y+'px';
+  const o=p<=0?0:(p<0.3?p/0.3:1-(p-0.3)/0.7);el.style.opacity=o*0.9;el.style.transform=`scale(${0.6+0.6*p})`}
+function press(el,lt,at){const p=k(lt,at-0.04,0.22);const s=p>0&&p<1?1-0.12*Math.sin(p*Math.PI):1;el.style.transform=`scale(${s})`}
+function phoneIn(el,lt){const p=eo(k(lt,0.0,0.45));el.style.opacity=cl(lt/0.15);el.style.transform=`translateY(${(1-p)*160}px) rotate(${(1-p)*4}deg)`}
+
+// static builds
+(function(){
+ const ic=$('s2icons');const cols=['#E3E8E4','#D7C3A2','#9FB3B5','#C9D6D7','#F2E6D0'];
+ for(let i=0;i<5;i++)ic.innerHTML+=`<div style="width:92px;height:92px;border-radius:26px;margin:auto;background:${cols[i]};opacity:.55"></div>`;
+ const res=[['食べる','たべる · ICHIDAN VERB','to eat; to live on (e.g. a salary)'],['食べ物','たべもの · NOUN','food'],['食べ歩き','たべあるき · NOUN, SURU VERB','trying the food at various restaurants'],['食べ過ぎ','たべすぎ · NOUN','overeating; eating too much'],['食べ方','たべかた · NOUN','way of eating, how to eat']];
+ $('s6list').innerHTML=res.map((r,i)=>`<div class="card row" id="d${i}"><div class="kbox jp" style="font-size:${r[0].length>3?15:19}px">${r[0]}</div><div><div class="tag jp">${r[1]}</div><div class="mean">${r[2]}</div></div></div>`).join('');
+ const lines=[['毎日日本語を勉強します','#5B9BD5'],['新しい本は面白かった','#3FA877'],['学校へ行きましょう','#D9A54A']];
+ $('scl').innerHTML=lines.map((l,i)=>`<div style="position:relative;margin-bottom:28px;display:inline-block;padding:10px 12px"><span>${l[0]}</span><div class="box" id="bx${i}" style="position:absolute;inset:0;border:3px solid ${l[1]};border-radius:10px;background:${l[1]}22;opacity:0"></div></div><br>`).join('');
+ const seg=[[['毎日','#5B9BD5'],['日本語','#3FA877'],['を','#D9A54A'],['勉強','#E0605A'],['します','#C792EA']],[['新しい','#5B9BD5'],['本','#3FA877'],['は','#D9A54A'],['面白かった','#E0605A']],[['学校','#D9A54A'],['へ','#C792EA'],['行きましょう','#5B9BD5']]];
+ $('s7lines').innerHTML=seg.map((s,i)=>`<div class="jp" style="font-size:21px;margin:6px 0 14px" id="sl${i}">`+s.map(([w,c])=>`<span style="display:inline-block;margin-right:4px;position:relative">${w}<i style="position:absolute;left:0;right:0;bottom:-6px;height:3px;border-radius:2px;background:${c};display:block"></i></span>`).join('')+'</div>').join('');
+ let cal=['S','M','T','W','T','F','S'].map(d=>`<div style="color:#93A6A8;font-size:12px">${d}</div>`).join('');
+ for(let i=0;i<4;i++)cal+='<div></div>';
+ for(let d=1;d<=31;d++){cal+= d<=7?`<div style="position:relative;height:30px"><svg class="fl" style="position:absolute;left:50%;top:-4px;margin-left:-14px" width="28" height="34" viewBox="0 0 24 28"><path d="M12 1c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6 0 2 1 3.5 2.5 4C10 9 11 5 12 1z" fill="#FF9A3D"/></svg><span style="position:relative;color:#fff;font-weight:700;font-size:13px;top:6px">${d}</span></div>`:`<div style="height:30px;line-height:30px">${d}</div>`}
+ $('s8cal').innerHTML=cal;
+ window.PAL=[['Teal','111D20','172629','2A4247','EDF3F3'],['Midnight','0D1222','141B31','27324F','EEF1FA'],['Sakura','1C1216','28191F','4B2C38','F8EEF1'],['Matcha','111912','172219','2E4430','EEF4EC'],['Sumi','0A0A0B','111113','222226','F2F2F2'],['Ocean','07161F','0B2230','12425A','EAF6FB'],['Ember','1A0F0B','26150F','52291A','FBEFE8'],['Honey','1A1508','241C0A','4A3A10','FBF5E3'],['Lavender','15111F','1D1730','3A2D5A','F3EFFB'],['Void','000000','000000','0A0A0A','F5F5F5'],['Indigo','0B1026','131A3C','293566','EEF0FF'],['Mocha','17110D','231A14','473528','F6EDE4'],['Forest','071410','0C2019','17402F','E9F6EF'],['Wine','180A0F','261017','511F32','F9EBF0'],['Grape','130B1E','1D1130','3C2160','F2EBFC'],['Slate','0E1214','161B1E','2B343A','EDF1F3'],['Neon','05080D','080E18','0E1C2E','E6FBFF'],['Clay','1A110D','281811','55301F','FBEEE6'],['Washi','F6F3EC','EEE9DE','DCD3C1','1E2427'],['Lemon','FFFBEA','FFF4C7','F5E08A','2A2410'],['Snow','F7F9FB','EEF2F6','D9E1EA','1B2430'],['Sand','FBF7F0','F3ECE0','E2D6C1','23201A'],['Sage','F4F8F3','E8F0E6','CFDECA','1A241B'],['Blossom','FFF6F8','FCE9EE','F3CCD8','2A1A20'],['Sky','F5FAFF','E7F2FC','C9DEF2','13202C'],['Paper','FFFFFF','F4F4F5','E2E2E5','121214']];
+ $('s9grid').innerHTML=PAL.map((p,i)=>`<div class="tile" id="t${i}" style="background:linear-gradient(160deg,#${p[2]},#${p[1]});color:#${p[4]}"><div class="c">字</div><div class="d"><i style="background:#E0605A"></i><i style="background:#D9A54A"></i><i style="background:#3FA877"></i><i style="background:#5B9BD5"></i></div><div class="n">${p[0]}</div></div>`).join('');
+ const chips=[['Anki .apkg in','#5B9BD5'],['Kotoba in','#D9A54A'],['AnkiDroid','#3FA877'],['.apkg out','#E0605A'],['Google Drive sync','#EDF3F3']];
+ $('s10chips').innerHTML=chips.map((c,i)=>`<span class="chip" id="c${i}"><b style="background:${c[1]}"></b>${c[0]}</span>`).join('');
+ $('w3f').innerHTML=[...Array(7)].map(()=>`<svg width="34" height="40" viewBox="0 0 24 28"><path d="M12 1c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6 0 2 1 3.5 2.5 4C10 9 11 5 12 1z" fill="#FF9A3D"/></svg>`).join('');
+ $('g4w').innerHTML=[...Array(26)].map(()=>`<i style="display:block;width:8px;border-radius:4px;background:#5B9BD5"></i>`).join('');
+})();
+
+
+// ---------- v2: 3D rigs ----------
+function rigify(ph){
+  const rig=document.createElement('div');rig.className='rig';
+  rig.style.left=ph.style.left;rig.style.top=ph.style.top;rig.style.width='440px';rig.style.height='910px';
+  ph.parentNode.insertBefore(rig,ph);
+  for(let i=1;i<=7;i++){const sl=document.createElement('div');sl.className='slab';sl.style.transform=`translateZ(${-i*2.2}px)`;rig.appendChild(sl)}
+  rig.appendChild(ph);
+  const g=document.createElement('div');g.className='glint';ph.querySelector('.screen').appendChild(g);
+  rig._g=g;return rig;
+}
+const RIG={};['s3ph','s4ph','s6ph','s7ph','s8ph'].forEach(id=>RIG[id]=rigify($(id)));
+function wrap3d(ids,id){const w=document.createElement('div');w.id=id;w.style.cssText='position:absolute;inset:0;transform-style:preserve-3d';
+  const par=$(ids[0]).parentNode;par.appendChild(w);ids.forEach(i=>w.appendChild($(i)));return w}
+wrap3d(['g1','g2','g3','g4'],'gwrap');wrap3d(['w1','w2','w3','w4','s10cap'],'wwrap');
+const eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const ex=x=>x>=1?1:1-Math.pow(2,-10*x);
+const lerp=(a,b,p)=>a+(b-a)*p;
+function rig(id,{x=0,y=0,z=0,rx=0,ry=0,rz=0,s=1,ox=220,oy=455,o=1}){const r=RIG[id];
+  r.style.transformOrigin=`${ox}px ${oy}px`;r.style.opacity=o;
+  r.style.transform=`perspective(2400px) translate3d(${x}px,${y}px,${z}px) rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg) scale(${s})`;}
+function glint(id,lt,a){const g=RIG[id]._g;const p=k(lt,a,0.9);g.style.backgroundPosition=`${lerp(130,-30,eio(p))}% 0`;g.style.opacity=p>0&&p<1?1:0}
+function phoneEnter(id,lt,D,o={}){
+  const p=ex(k(lt,0,0.75)); const d=k(lt,0,D);
+  const ry0=o.ry0??-48, ry1=o.ry1??-16, ry2=o.ry2??-6;
+  return {x:(1-p)*(o.x0??260),y:(1-p)*(o.y0??220),z:(1-p)*-500,rx:lerp(o.rx0??14,o.rx1??5,p)-3*d,ry:lerp(ry0,ry1,p)+(ry2-ry1)*eio(d),rz:(1-p)*(o.rz0??6),s:1+0.04*d};
+}
+function blurWords(el,lt,start=0.05,gap=0.06){
+  el.querySelectorAll('.w').forEach((w,i)=>{const p=ex(k(lt,start+i*gap,0.55));
+    w.style.opacity=cl(p*1.4);w.style.filter=`blur(${(1-p)*18}px)`;w.style.transform=`translate(0,${(1-p)*40}px) scale(${1.15-0.15*p})`});
+}
+function blurUp(el,lt,start,d=0.5){const p=ex(k(lt,start,d));el.style.opacity=p;el.style.filter=`blur(${(1-p)*10}px)`;el.style.transform=`translateY(${(1-p)*24}px)`}
+function fmt(n){return n.toLocaleString('en-US')}
+
+function render(t){
+  const beatPh=(t/B)%1;const pulse=Math.exp(-beatPh*6);
+  $('glow').style.opacity=0.45+0.55*pulse*(t>2.34?1:0.3);
+  $('wm').style.transform=`translate(${-t*8}px,${t*4}px) scale(${1.05+0.004*pulse})`;
+  $('stage').style.background='';
+  SC.forEach(([a,b],i)=>{
+    const el=$('s'+(i+1));const lt=t-a;
+    if(t<a-0.001||t>=b){el.style.display='none';return}
+    el.style.display='block';
+    const out=i===10?0:eio(k(t,b-0.2,0.2));const inn=ex(k(lt,0,0.22));
+    el.style.opacity=cl(inn*1.3)*(1-out);
+    el.style.filter=(out>0||inn<1)?`blur(${out*14+(1-inn)*10}px)`:'none';
+    el.style.transform=`scale(${(0.94+0.06*inn)*(1+0.14*out)})`;
+    R[i](lt,b-a);
+  });
+}
+
+const R=[
+ (lt,D)=>{ // hook
+   const n=Math.round(200*ex(k(lt,0.05,0.9)));$('s1n').textContent=n+'×';
+   const p=ex(k(lt,0,0.6));$('s1n').style.transform=`scale(${(1.35-0.35*p)*(1+0.05*k(lt,0,D))})`;$('s1n').style.filter=`blur(${(1-p)*30}px)`;$('s1n').style.opacity=p;
+   blurWords($('s1t'),lt,0.4,0.07);
+ },
+ (lt,D)=>{ // widget
+   blurWords($('s2h'),lt,0.05);blurUp($('s2p'),lt,0.45);
+   const p=ex(k(lt,0,0.8));const z=eio(k(lt,0.95,0.55));const d=k(lt,0,D);
+   const el=$('s2home');el.style.transformOrigin='524px 408px';el.style.opacity=cl(lt/0.2);
+   el.style.transform=`perspective(2400px) translate3d(${(1-p)*200}px,${(1-p)*260}px,${(1-p)*-400}px) rotateX(${lerp(58,10,p)*(1-z)}deg) rotateY(${lerp(-40,-16,p)*(1-z)}deg) rotateZ(${(1-p)*-8}deg) scale(${(1+0.3*z)*(1+0.03*d)})`;
+   const wp=ex(k(lt,0.35,0.6));$('s2wid').style.opacity=k(lt,0.35,0.15);$('s2wid').style.transform=`translateZ(0) translateY(${(1-wp)*30}px) scale(${0.9+0.1*wp})`;$('s2wid').style.filter=`blur(${(1-wp)*8}px)`;
+   touch($('s2touch'),lt,1.6,524,408);press($('s2ok'),lt,1.6);
+   const tp=ex(k(lt,1.72,0.5));$('s2toast').style.opacity=k(lt,1.72,0.1);$('s2toast').style.transform=`translate(-50%,${(1-tp)*40}px) scale(${0.85+0.15*tp})`;
+ },
+ (lt,D)=>{ // brand + today
+   const ip=ex(k(lt,0.0,0.8));const ic=$('s3icon');ic.style.opacity=k(lt,0,0.15);
+   ic.style.transform=`perspective(900px) rotateY(${(1-ip)*160}deg) rotateX(${(1-ip)*-20}deg) scale(${0.6+0.4*ip})`;
+   blurUp($('s3h'),lt,0.15,0.6);blurUp($('s3p'),lt,0.4,0.55);
+   const P=phoneEnter('s3ph',lt,D,{ry0:-55,ry1:-18,ry2:-8});
+   const zz=Math.sin(Math.PI*k(lt,0.9,1.5))*0.12;
+   rig('s3ph',{...P,s:P.s+zz,oy:300});glint('s3ph',lt,0.35);
+   touch($('s3touch'),lt,1.15,206,585);press($('s3new'),lt,1.15);
+   const f=k(lt,1.2,0.35);$('s3a').style.opacity=1-cl(f*2);$('s3b').style.opacity=cl(f*2-1);
+   $('s3card').style.transform=`perspective(800px) rotateY(${Math.sin(f*Math.PI)*-28}deg) scale(${1-0.05*Math.sin(f*Math.PI)})`;
+   if(lt>1.75){touch($('s3touch'),lt,2.05,320,585)}
+   press($('s3add'),lt,2.05);
+   const g=k(lt,2.1,0.5);$('s3card').style.boxShadow=`0 0 0 ${3*Math.sin(g*Math.PI)}px #3FA877, 0 0 ${40*Math.sin(g*Math.PI)}px rgba(63,168,119,.6)`;
+   $('s3rev').textContent=lt>2.1?'13 cards waiting':'12 cards waiting';
+ },
+ (lt,D)=>{ // study: macro on typing then pull out
+   blurWords($('s4h'),lt,0.1);blurUp($('s4p'),lt,0.45);
+   const ent=ex(k(lt,0,0.6));const pull=eio(k(lt,1.45,0.7));
+   const sc=lerp(2.05,1,pull)*(0.9+0.1*ent);
+   rig('s4ph',{x:(1-ent)*120,y:(1-ent)*80,z:0,rx:lerp(8,5,pull),ry:lerp(-26,-12,pull)+4*k(lt,2,1.3),rz:lerp(-3,0,pull),s:sc,ox:200,oy:478,o:ent});
+   glint('s4ph',lt,1.9);
+   const seq=['','た','たb','たべ','たべr','たべる'];const i=Math.min(5,Math.max(0,Math.floor((lt-0.4)/0.17)+1));
+   $('s4in').textContent=lt<0.4?'':seq[i];
+   const ok=k(lt,1.35,0.2);$('s4in').style.borderColor=`rgba(63,168,119,${ok})`;$('s4in').style.boxShadow=`0 0 ${30*ok}px rgba(63,168,119,${0.5*ok})`;
+   fadeUp($('s4ans'),lt,1.4,0.3,12);
+   const gp=ex(k(lt,1.8,0.5));st($('s4grades'),gp,0,(1-gp)*30);
+   touch($('s4touch'),lt,2.4,254,675);press($('s4good'),lt,2.4);
+   $('s4rv').textContent=lt>2.45?'30':'31';
+ },
+ (lt,D)=>{ // practice: 3D card wall
+   blurWords($('s5h'),lt,0.05);blurUp($('s5p'),lt,0.5);
+   const d=k(lt,0,D);const w=$('gwrap');w.style.transformOrigin='1330px 540px';
+   w.style.transform=`perspective(2000px) rotateY(${lerp(-30,-10,eio(d))}deg) rotateX(${lerp(14,4,eio(d))}deg) translateZ(${lerp(-120,40,d)}px)`;
+   ['g1','g2','g3','g4'].forEach((g,i)=>{const p=ex(k(lt,0.08+i*0.09,0.7));const el=$(g);
+     el.style.opacity=cl(p*1.5);el.style.filter=`blur(${(1-p)*14}px)`;
+     el.style.transform=`translate3d(${(1-p)*(i%2?260:-120)}px,${(1-p)*140}px,${(1-p)*-900+[30,90,-10,50][i]*p}px)`});
+   $('g1t').style.opacity=k(lt,0.75,0.15);
+   const c2=k(lt,0.9,0.15);$('g2c').style.background=`rgba(63,168,119,${0.08+0.8*c2})`;
+   const c3=k(lt,1.0,0.15);$('g3c').style.background=`rgba(63,168,119,${0.08+0.8*c3})`;
+   $('g4w').querySelectorAll('i').forEach((b,j)=>{b.style.height=(14+60*Math.abs(Math.sin(lt*9+j*0.7))*Math.sin((j+1)/27*Math.PI))+'px'});
+   const ap=ex(k(lt,1.05,0.55));const a=$('s5ach');a.style.opacity=k(lt,1.05,0.12);a.style.filter=`blur(${(1-ap)*10}px)`;a.style.transform=`perspective(1200px) translateY(${(1-ap)*-70}px) rotateX(${(1-ap)*-50}deg) scale(${0.9+0.1*ap})`;
+ },
+ (lt,D)=>{ // dictionary
+   const n=Math.round(213177*ex(k(lt,0.1,1.1)));$('s6h').querySelector('.w').textContent=fmt(n);
+   blurWords($('s6h'),lt,0.05,0.08);blurUp($('s6p'),lt,0.55);
+   const P=phoneEnter('s6ph',lt,D,{ry0:40,ry1:-14,ry2:-6,x0:300,rz0:-6});
+   rig('s6ph',P);glint('s6ph',lt,0.5);
+   const q=['','t','た','たb','たべ'];const i=Math.min(4,Math.max(0,Math.floor((lt-0.35)/0.12)+1));$('s6q').textContent=lt<0.35?'':q[i];
+   $('s6cur').style.opacity=(Math.floor(lt*4)%2)?0.2:1;
+   for(let j=0;j<5;j++){const p=ex(k(lt,0.9+j*0.08,0.5));const r=$('d'+j);r.style.opacity=p;r.style.transform=`perspective(600px) translateX(${(1-p)*70}px) rotateY(${(1-p)*-30}deg)`}
+   const dp=k(lt,1.9,0.5);$('s6draw').style.boxShadow=`0 0 0 ${3*Math.sin(dp*Math.PI)}px #EDF3F3`;
+ },
+ (lt,D)=>{ // scan: zoom into popup
+   blurWords($('s7h'),lt,0.05);blurUp($('s7p'),lt,0.45);
+   const P=phoneEnter('s7ph',lt,D,{rx0:-40,rx1:4,ry0:-20,ry1:-14,ry2:-8,y0:-200,x0:120,rz0:0});
+   const z=eio(k(lt,1.4,0.6));
+   rig('s7ph',{...P,s:P.s+0.32*z,ry:P.ry*(1-0.6*z),ox:210,oy:600});glint('s7ph',lt,0.6);
+   $('s7bar').style.top=(20+220*((lt*1.6)%1))+'px';$('s7bar').style.opacity=1-k(lt,0.85,0.1);
+   for(let j=0;j<3;j++){const p=eb(k(lt,0.35+j*0.13,0.3));const b=$('bx'+j);b.style.opacity=k(lt,0.35+j*0.13,0.08);b.style.transform=`scale(${1.25-0.25*p})`}
+   $('s7found').style.opacity=k(lt,0.8,0.15);
+   for(let j=0;j<3;j++){fadeUp($('sl'+j),lt,0.85+j*0.08,0.3,14)}
+   touch($('s7touch'),lt,1.35,210,541);
+   const pp=ex(k(lt,1.45,0.5));$('s7pop').style.opacity=k(lt,1.45,0.1);$('s7pop').style.transform=`translateY(${(1-pp)*30}px) scale(${0.85+0.15*pp})`;$('s7pop').style.filter=`blur(${(1-pp)*6}px)`;
+ },
+ (lt,D)=>{ // progress
+   blurWords($('s8h'),lt,0.05);blurUp($('s8p'),lt,0.5);
+   const P=phoneEnter('s8ph',lt,D,{ry0:-60,ry1:-20,ry2:-6,rx0:30,rx1:8});
+   rig('s8ph',P);glint('s8ph',lt,1.5);
+   $('s8cal').querySelectorAll('.fl').forEach((f,j)=>{const p=eb(k(lt,0.5+j*0.13,0.3));f.style.opacity=k(lt,0.5+j*0.13,0.06);f.style.transform=`scale(${p})`;f.style.transformOrigin='50% 80%'});
+   const n=Math.max(1,Math.min(7,Math.floor((lt-0.5)/0.13)+1));$('s8n').textContent=lt<0.5?'1':n;
+   const fp=Math.exp(-((lt-0.5)%0.13)*20);$('s8fl').style.transform=`scale(${1+0.2*fp*(lt>0.5&&lt<1.45?1:0)})`;
+   const bs=$('bigseven');bs.textContent=lt<0.5?'1':n;const bp=Math.exp(-((lt-0.5)%0.13)*14)*(lt>0.5&&lt<1.45?1:0);
+   bs.style.transform=`translateX(${-40*k(lt,0,D)}px) scale(${1+0.04*bp})`;bs.style.opacity=ex(k(lt,0.1,0.6));
+ },
+ (lt,D)=>{ // themes: 3D wall
+   blurWords($('s9h'),lt,0.03);blurUp($('s9p'),lt,0.3);
+   const d=k(lt,0,D);const g=$('s9grid');g.style.transformOrigin='480px 230px';
+   g.style.transform=`perspective(1800px) rotateY(${lerp(-38,-14,eio(d))}deg) rotateX(${lerp(16,6,eio(d))}deg) scale(${lerp(0.92,1.02,d)})`;g.style.transformStyle='preserve-3d';
+   for(let j=0;j<26;j++){const p=ex(k(lt,0.03+j*0.017,0.45));const el=$('t'+j);el.style.opacity=cl(p*1.4);el.style.transform=`translate3d(0,${(1-p)*40}px,${(1-p)*-500}px)`}
+   const idx=lt<0.5?0:Math.min(25,Math.floor((lt-0.5)/0.05));const Pp=PAL[idx];
+   for(let j=0;j<26;j++){const on=j===idx&&lt>0.5;$('t'+j).style.borderColor=on?'#fff':'rgba(255,255,255,.1)';$('t'+j).style.borderWidth=on?'4px':'2px';if(on)$('t'+j).style.transform+=' translateZ(40px) scale(1.08)'}
+   $('s9name').textContent=Pp[0];$('s9name').style.color='#'+Pp[4];
+   if(lt>0.5){$('stage').style.background=`radial-gradient(1400px 900px at 70% 45%,#${Pp[3]} 0%,#${Pp[2]} 45%,#${Pp[1]} 100%)`;}
+   const light=idx>=18&&lt>0.5;$('s9p').style.color=light?'#'+Pp[4]:'#93A6A8';
+   $('s9h').querySelectorAll('.w').forEach(w=>{w.style.backgroundImage=light?`linear-gradient(180deg,#${Pp[4]},#${Pp[4]}cc)`:''});
+ },
+ (lt,D)=>{ // widgets floating in depth
+   blurWords($('s10h'),lt,0.05);
+   for(let j=0;j<5;j++){const p=ex(k(lt,0.4+j*0.07,0.45));const c=$('c'+j);c.style.opacity=p;c.style.filter=`blur(${(1-p)*8}px)`;c.style.transform=`translateY(${(1-p)*20}px) scale(${0.85+0.15*p})`}
+   const d=k(lt,0,D);const w=$('wwrap');w.style.transformOrigin='1340px 400px';
+   w.style.transform=`perspective(2000px) rotateY(${lerp(-28,-10,eio(d))}deg) rotateX(${lerp(12,4,d)}deg)`;
+   const zs=[80,180,0,120];
+   ['w1','w2','w3','w4'].forEach((id,i)=>{const p=ex(k(lt,0.06+i*0.1,0.7));const el=$(id);el.style.opacity=cl(p*1.5);el.style.filter=`blur(${(1-p)*12}px)`;
+     el.style.transform=`translate3d(${(1-p)*(i%2?200:-100)}px,${(1-p)*120+Math.sin(lt*2+i)*6}px,${zs[i]*p+(1-p)*-700}px)`});
+   blurUp($('s10cap'),lt,0.8);
+ },
+ (lt,D)=>{ // outro
+   const ip=ex(k(lt,0.0,0.9));const ic=$('s11icon');ic.style.opacity=k(lt,0,0.15);
+   ic.style.transform=`perspective(900px) rotateY(${(1-ip)*-180}deg) scale(${0.5+0.5*ip})`;
+   const gl=k(lt,0.7,0.8);ic.style.boxShadow=`0 30px 70px rgba(0,0,0,.5), 0 0 ${60*Math.sin(gl*Math.PI)}px rgba(63,168,119,.5)`;
+   blurUp($('s11h'),lt,0.15,0.6);blurUp($('s11a'),lt,0.45,0.55);blurUp($('s11b'),lt,0.7,0.55);
+   const d=k(lt,0,D+1.2);$('s11').querySelector('div').style.transform=`scale(${1+0.03*d})`;
+ }
+];
+window.render=render;
+</script></body></html>
