@@ -441,7 +441,44 @@ object ActivityLog {
         return x.get(Calendar.YEAR) == b.get(Calendar.YEAR) && x.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
     }
 
+    //days practiced in one month and the longest run of days in a row inside it, for under the calendar title
+    data class Month(val practiced: Int, val bestRun: Int)
+
+    fun month(days: Set<String>, prefix: String): Month {
+        val nums = days.filter { it.startsWith(prefix) }.mapNotNull { it.removePrefix(prefix).toIntOrNull() }.sorted()
+        var best = 0
+        var run = 0
+        var prev = -10
+        for (n in nums) {
+            run = if (n == prev + 1) run + 1 else 1
+            best = maxOf(best, run)
+            prev = n
+        }
+        return Month(nums.size, best)
+    }
+
     fun clear(ctx: Context) = file(ctx).writeText("{}")
+}
+
+//everything about one day for when u tap a flame on the calendar
+object DayStats {
+    data class Stats(val key: String, val kept: Int, val reviews: Int, val grades: List<Int>, val achievements: List<String>) {
+        val total: Int get() = kept + reviews
+        //anything but again counts as right, same as anki
+        val accuracy: Int? get() {
+            val n = grades.sum()
+            return if (n == 0) null else Math.round((n - grades[0]) * 100f / n)
+        }
+    }
+
+    fun of(key: String, day: ActivityLog.Day?, log: List<RevLog.Entry>, earned: Map<String, String>): Stats {
+        val g = IntArray(4)
+        for (e in log) if (e.grade in 1..4 && ActivityLog.dayKey(e.t) == key) g[e.grade - 1]++
+        return Stats(
+            key, day?.accepted ?: 0, day?.reviews ?: 0, g.toList(),
+            earned.filterValues { it == key }.keys.toList()
+        )
+    }
 }
 
 //tiny review log for the insights card
@@ -1650,5 +1687,67 @@ object Backup {
         }
         add(a); add(b)
         return JSONArray(seen.values)
+    }
+}
+
+//remembers where u are in each practice game per deck, so switching games or closing the app dont reset it
+object PracticeSave {
+    data class Saved(
+        val order: List<String>,
+        val index: Int = 0,
+        val right: Int = 0,
+        val streak: Int = 0,
+        val missed: Set<Int> = emptySet(),
+        val picked: Map<Int, String> = emptyMap()
+    )
+
+    //the cards in the saved order plus where u were. saved is null when its a fresh round
+    data class Session(val cards: List<DeckCard>, val saved: Saved?)
+
+    private fun sp(ctx: Context) = ctx.applicationContext.getSharedPreferences("practice_save", Context.MODE_PRIVATE)
+    fun key(deckId: String, mode: String) = "${mode}_$deckId"
+
+    fun load(ctx: Context, key: String): Saved? = runCatching {
+        val raw = sp(ctx).getString(key, null) ?: return null
+        decode(JSONObject(raw))
+    }.getOrNull()
+
+    fun save(ctx: Context, key: String, s: Saved) {
+        sp(ctx).edit().putString(key, encode(s).toString()).apply()
+    }
+
+    fun clear(ctx: Context, key: String) = sp(ctx).edit().remove(key).apply()
+
+    //the deck loads shuffled, this puts it back in the order u had. new cards go on the end, deleted ones drop out
+    fun arrange(cards: List<DeckCard>, saved: Saved?): Session {
+        if (saved == null || saved.order.isEmpty()) return Session(cards, null)
+        val byId = cards.associateBy { it.id }
+        val kept = saved.order.mapNotNull { byId[it] }
+        if (kept.isEmpty()) return Session(cards, null)
+        val keptIds = kept.map { it.id }.toSet()
+        val ordered = kept + cards.filter { it.id !in keptIds }
+        //if cards got deleted the old spots dont line up anymore, keep the score but forget the per card marks
+        val shifted = kept.size != saved.order.size
+        val fixed = saved.copy(
+            order = ordered.map { it.id },
+            index = saved.index.coerceIn(0, ordered.size),
+            missed = if (shifted) emptySet() else saved.missed,
+            picked = if (shifted) emptyMap() else saved.picked
+        )
+        return Session(ordered, fixed)
+    }
+
+    fun encode(s: Saved): JSONObject = JSONObject().apply {
+        put("order", JSONArray(s.order))
+        put("index", s.index); put("right", s.right); put("streak", s.streak)
+        put("missed", JSONArray(s.missed.sorted()))
+        put("picked", JSONObject().apply { s.picked.forEach { (k, v) -> put(k.toString(), v) } })
+    }
+
+    fun decode(o: JSONObject): Saved {
+        val order = o.optJSONArray("order")?.let { a -> List(a.length()) { a.getString(it) } }.orEmpty()
+        val missed = o.optJSONArray("missed")?.let { a -> List(a.length()) { a.getInt(it) }.toSet() }.orEmpty()
+        val picked = o.optJSONObject("picked")?.let { p -> p.keys().asSequence().associate { it.toInt() to p.getString(it) } }.orEmpty()
+        return Saved(order, o.optInt("index"), o.optInt("right"), o.optInt("streak"), missed, picked)
     }
 }

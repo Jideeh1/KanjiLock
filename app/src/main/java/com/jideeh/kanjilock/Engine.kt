@@ -309,6 +309,9 @@ object Study {
         allCards(ctx, deck).filter { it.front.isNotBlank() && safeMeaning(it).isNotBlank() }.shuffled()
 
     private val BRACKETS = Regex("[（(\\[【][^）)\\]】]*[）)\\]】]")
+    //any hiragana katakana or halfwidth kana, kana in a choice basically reads the answer out loud
+    private val KANA = Regex("[\\u3040-\\u309F\\u30A0-\\u30FF\\u31F0-\\u31FF\\uFF66-\\uFF9F]+")
+    private val EMPTY_BRACKETS = Regex("[（(\\[【「『]\\s*[）)\\]】」』]")
     private val GAP = Regex("\\s{2,}")
     private val EDGE = Regex("^[\\s\\p{Punct}、。・…—–~〜:：;；,，/|]+|[\\s\\p{Punct}、。・…—–~〜:：;；,，/|]+$")
 
@@ -320,13 +323,17 @@ object Study {
         val giveaways = (listOf(card.front, card.reading) + card.answers)
             .map { it.trim() }.filter { it.isNotEmpty() && Jp.hasJapanese(it) }
             .distinct().sortedByDescending { it.length }
-        if (giveaways.isEmpty()) return t
-        //nuke whole brackets that only existed to hold the word, like "Japan（日本）"
-        t = BRACKETS.replace(t) { m -> if (giveaways.any { g -> m.value.contains(g) }) " " else m.value }
-        for (g in giveaways) t = t.replace(g, " ")
-        //a shared kanji is still like half the answer, kana only definitions stay readable tho
-        val fronted = card.front.filter { Jp.isKanji(it) }.toSet()
-        if (fronted.isNotEmpty()) t = t.map { if (it in fronted) ' ' else it }.joinToString("")
+        if (giveaways.isNotEmpty()) {
+            //nuke whole brackets that only existed to hold the word, like "Japan（日本）"
+            t = BRACKETS.replace(t) { m -> if (giveaways.any { g -> m.value.contains(g) }) " " else m.value }
+            for (g in giveaways) t = t.replace(g, " ")
+            //a shared kanji is still like half the answer
+            val fronted = card.front.filter { Jp.isKanji(it) }.toSet()
+            if (fronted.isNotEmpty()) t = t.map { if (it in fronted) ' ' else it }.joinToString("")
+        }
+        //no kana at all, even other words in there can spell the reading out
+        t = KANA.replace(t, " ")
+        repeat(2) { t = EMPTY_BRACKETS.replace(t, " ") }
         t = GAP.replace(t, " ")
         return EDGE.replace(t.trim(), "").trim()
     }
@@ -1010,6 +1017,9 @@ object Haptics {
     //little double tap when an achievement pops
     fun tick(ctx: Context) = buzz(ctx, longArrayOf(0, 18, 90, 28))
 
+    //one short tap, for copying stuff
+    fun tap(ctx: Context) = buzz(ctx, longArrayOf(0, 14))
+
     private fun buzz(ctx: Context, pattern: LongArray) {
         if (!Prefs.vibrate(ctx)) return
         val v = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -1462,11 +1472,11 @@ object Handwriting {
 
 //reads japanese off a photo with ml kit, then chops every line into words with the dict
 object Ocr {
-    //one line the camera read, already chopped into words
-    class Line(val text: String, val tokens: List<Jp.Token>)
+    //one line the camera read, already chopped into words. box is where it sits on the photo
+    class Line(val text: String, val tokens: List<Jp.Token>, val box: ScanLayout.Box? = null, val vertical: Boolean = false)
 
-    //the frozen frame plus everything we got off it
-    class Shot(val image: Bitmap, val lines: List<Line>)
+    //the photo plus everything we got off it. fill is true for camera shots, they crop to the screen like the preview did
+    class Shot(val image: Bitmap, val lines: List<Line>, val fill: Boolean = true)
 
     @Volatile private var client: TextRecognizer? = null
 
@@ -1493,12 +1503,14 @@ object Ocr {
     //every line it read, with the words already looked up
     suspend fun read(ctx: Context, bitmap: Bitmap): List<Line> {
         val text = client().process(InputImage.fromBitmap(bitmap, 0)).await()
+        //kept every line with its spot on the photo, the overlay draws the text right back on top of it
         val raw = text.textBlocks.flatMap { b -> b.lines }
-            .map { it.text.trim() }
-            .filter { Jp.countJapanese(it) >= 1 }
-            .distinct()
+            .map { l -> l.text.trim() to l.boundingBox?.let { ScanLayout.Box(it.left.toFloat(), it.top.toFloat(), it.right.toFloat(), it.bottom.toFloat()) } }
+            .filter { Jp.countJapanese(it.first) >= 1 }
         return withContext(Dispatchers.IO) {
-            raw.map { line -> Line(line, Jp.tokenize(line) { s -> if (inDict(ctx, s)) s else null }) }
+            raw.map { (line, box) ->
+                Line(line, Jp.tokenize(line) { s -> if (inDict(ctx, s)) s else null }, box, ScanLayout.isVertical(box, line))
+            }
         }
     }
 
@@ -1508,7 +1520,50 @@ object Ocr {
     fun words(lines: List<Line>): List<Jp.Token> =
         lines.flatMap { it.tokens }.filter { it.known && Jp.hasJapanese(it.text) }.distinctBy { it.lookup }
 
-    fun plain(lines: List<Line>): String = lines.joinToString("\n") { it.text }
+    fun plain(lines: List<Line>): String = lines.map { it.text }.distinct().joinToString("\n")
+}
+
+//the maths for drawing scanned text back over the photo, no android stuff in here so its testable
+object ScanLayout {
+    data class Box(val l: Float, val t: Float, val r: Float, val b: Float) {
+        val w: Float get() = r - l
+        val h: Float get() = b - t
+    }
+
+    //how the photo sits on screen. crop fills the screen like the camera preview, fit shows all of it
+    data class Map(val scale: Float, val dx: Float, val dy: Float) {
+        fun box(b: Box) = Box(b.l * scale + dx, b.t * scale + dy, b.r * scale + dx, b.b * scale + dy)
+    }
+
+    fun map(imageW: Int, imageH: Int, screenW: Float, screenH: Float, fill: Boolean): Map {
+        if (imageW <= 0 || imageH <= 0) return Map(1f, 0f, 0f)
+        val sx = screenW / imageW
+        val sy = screenH / imageH
+        val s = if (fill) maxOf(sx, sy) else minOf(sx, sy)
+        return Map(s, (screenW - imageW * s) / 2f, (screenH - imageH * s) / 2f)
+    }
+
+    //tategaki, a tall skinny box with more than 1 character in it
+    fun isVertical(box: Box?, text: String): Boolean = box != null && text.length > 1 && box.h > box.w * 1.3f
+
+    //cuts a line box into one box per word by how many characters each word has. japanese is pretty much monospaced so this lines up
+    fun split(box: Box, vertical: Boolean, lengths: List<Int>): List<Box> {
+        val total = lengths.sum().coerceAtLeast(1)
+        var at = 0
+        return lengths.map { n ->
+            val a = at.toFloat() / total
+            at += n
+            val b = at.toFloat() / total
+            if (vertical) Box(box.l, box.t + box.h * a, box.r, box.t + box.h * b)
+            else Box(box.l + box.w * a, box.t, box.l + box.w * b, box.b)
+        }
+    }
+
+    //biggest font that still fits one character per slot across the line
+    fun fontPx(box: Box, vertical: Boolean, chars: Int): Float {
+        val n = chars.coerceAtLeast(1)
+        return if (vertical) minOf(box.w * 0.8f, box.h / n * 0.96f) else minOf(box.h * 0.8f, box.w / n * 0.96f)
+    }
 }
 
 fun copyToClipboard(ctx: Context, text: String) {
@@ -1539,6 +1594,14 @@ object Cam {
         if (deg == 0) return raw
         val m = Matrix().apply { postRotate(deg.toFloat()) }
         return Bitmap.createBitmap(raw, 0, 0, raw.width, raw.height, m, true)
+    }
+
+    //camera photos can be 12mp, way more than ocr or the screen needs
+    fun shrink(bmp: Bitmap, longest: Int = 2200): Bitmap {
+        val big = maxOf(bmp.width, bmp.height)
+        if (big <= longest) return bmp
+        val k = longest.toFloat() / big
+        return Bitmap.createScaledBitmap(bmp, (bmp.width * k).toInt().coerceAtLeast(1), (bmp.height * k).toInt().coerceAtLeast(1), true)
     }
 
     //gallery pics can be absolutely massive, 2000px on the long side is plenty for ocr

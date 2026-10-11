@@ -226,7 +226,8 @@ class DictionaryTest {
         assertTrue(words.all { it.reading.isNotBlank() && it.meaning.isNotBlank() })
         val kanji = q.randomKanjiIds(20).mapNotNull { q.word(it) }
         assertEquals(20, kanji.size)
-        assertTrue(kanji.all { it.type == "kanji" && it.word.length == 1 })
+        //some kanji are outside the bmp so they take 2 chars, count code points
+        assertTrue(kanji.all { it.type == "kanji" && it.word.codePointCount(0, it.word.length) == 1 })
     }
 }
 
@@ -242,7 +243,25 @@ class UpdaterAndTypingTest {
 
     //same shape as api.github.com/repos/x/y/releases/latest
     @Test fun parsesGithubRelease() {
-        val body = File("../docs/release-v1.0.0.md").readText()
+        //same shape as a real release body, banner badges html n all. inline so the test dont need the docs folder
+        val body = """
+            <div align="center">
+
+            <img src="https://raw.githubusercontent.com/Jideeh1/KanjiLock/main/docs/release-v1.0.0.png" width="100%" alt="KanjiLock v1.0.0">
+
+            ![version](https://img.shields.io/badge/version-1.0.0-3DDC84?style=flat-square) ![android](https://img.shields.io/badge/android-8.0%2B-2F4A50?style=flat-square)
+
+            **one japanese word a day**
+
+            </div>
+
+            <br>
+
+            ## whats in it
+
+            - home screen widget
+            - spaced repetition study
+        """.trimIndent()
         val json = org.json.JSONObject()
             .put("tag_name", "v1.0.0").put("draft", false).put("prerelease", false)
             .put("html_url", "https://github.com/Jideeh1/KanjiLock/releases/tag/v1.0.0")
@@ -345,6 +364,99 @@ class V2Test {
         assertEquals(Achievements.all.size, Achievements.all.map { it.id }.toSet().size)
         //every kind has a name for each tier
         Achievements.all.groupBy { it.kind }.forEach { (_, l) -> assertEquals(l.indices.toList(), l.map { it.tier }) }
+    }
+
+    //meaning choices cant have any kana in them, its basically the reading
+    @Test fun meaningChoicesHaveNoKana() {
+        fun kana(t: String) = t.any { it in '\u3040'..'\u30FF' || it in '\uFF66'..'\uFF9F' }
+        val cards = listOf(
+            DeckCard("1", "食べる", "たべる", "to eat (たべる)", answers = listOf("たべる")),
+            DeckCard("2", "山", "やま", "mountain; やま", answers = listOf("やま")),
+            DeckCard("3", "猫", "ねこ", "cat, see also コネコ kitten", answers = listOf("ねこ")),
+            DeckCard("4", "日本", "にほん", "Japan（日本）", answers = listOf("にほん")),
+            DeckCard("5", "川", "かわ", "かわ", answers = listOf("かわ"))
+        )
+        for (c in cards) assertFalse(c.meaning, kana(Study.safeMeaning(c)))
+        assertEquals("to eat", Study.safeMeaning(cards[0]))
+        assertEquals("cat, see also kitten", Study.safeMeaning(cards[2]))
+        assertEquals("Japan", Study.safeMeaning(cards[3]))
+        //only kana in the meaning means nothing usable is left, that card sits out
+        assertEquals("", Study.safeMeaning(cards[4]))
+        for (c in cards.take(4)) Study.choices(cards, c, false).forEach { assertFalse(it, kana(it)) }
+    }
+
+    //progress comes back in the same order, new cards tack on the end, deleted ones drop out
+    @Test fun practiceProgressRestores() {
+        val cards = listOf("a", "b", "c", "d").map { DeckCard(it, it) }
+        val saved = PracticeSave.Saved(listOf("c", "a", "d", "b"), index = 2, right = 2, streak = 2, missed = setOf(1), picked = mapOf(0 to "x"))
+        val back = PracticeSave.decode(PracticeSave.encode(saved))
+        assertEquals(saved, back)
+        val s = PracticeSave.arrange(cards.shuffled(), back)
+        assertEquals(listOf("c", "a", "d", "b"), s.cards.map { it.id })
+        assertEquals(2, s.saved!!.index); assertEquals(2, s.saved!!.streak); assertEquals(setOf(1), s.saved!!.missed)
+        //a new card shows up at the end, score stays
+        val more = PracticeSave.arrange(cards + DeckCard("e", "e"), back)
+        assertEquals(listOf("c", "a", "d", "b", "e"), more.cards.map { it.id })
+        assertEquals(setOf(1), more.saved!!.missed)
+        //a deleted card shifts the spots so per card marks get dropped but the streak stays
+        val less = PracticeSave.arrange(cards.filter { it.id != "a" }, back)
+        assertEquals(listOf("c", "d", "b"), less.cards.map { it.id })
+        assertEquals(2, less.saved!!.streak); assertTrue(less.saved!!.missed.isEmpty())
+        //nothing saved means a fresh round in whatever order it loaded
+        assertNull(PracticeSave.arrange(cards, null).saved)
+    }
+
+    //the text overlay has to land right on top of where the words were in the photo
+    @Test fun scanOverlayLinesUp() {
+        //1000x2000 photo on a 500x1000 screen, same shape so crop n fit agree
+        val fit = ScanLayout.map(1000, 2000, 500f, 1000f, fill = false)
+        assertEquals(0.5f, fit.scale, 0.0001f); assertEquals(0f, fit.dx, 0.0001f)
+        //wider photo cropped to a tall screen spills off both sides evenly
+        val crop = ScanLayout.map(1920, 1080, 1080f, 2400f, fill = true)
+        assertEquals(2400f / 1080f, crop.scale, 0.0001f)
+        assertEquals((1080f - 1920f * crop.scale) / 2f, crop.dx, 0.01f)
+        assertEquals(0f, crop.dy, 0.01f)
+        val box = ScanLayout.Box(100f, 50f, 400f, 110f)
+        val on = fit.box(box)
+        assertEquals(ScanLayout.Box(50f, 25f, 200f, 55f), on)
+        //3 words of 2, 1 and 3 characters split a 6 wide line 2 1 3
+        val parts = ScanLayout.split(ScanLayout.Box(0f, 0f, 600f, 40f), false, listOf(2, 1, 3))
+        assertEquals(listOf(0f, 200f, 300f), parts.map { it.l })
+        assertEquals(600f, parts.last().r, 0.001f)
+        //vertical text splits down the column instead
+        val down = ScanLayout.split(ScanLayout.Box(0f, 0f, 40f, 400f), true, listOf(1, 3))
+        assertEquals(listOf(0f, 100f), down.map { it.t })
+        assertTrue(ScanLayout.isVertical(ScanLayout.Box(0f, 0f, 40f, 400f), "縦書き"))
+        assertFalse(ScanLayout.isVertical(ScanLayout.Box(0f, 0f, 400f, 40f), "横書き"))
+        //font never wider than one slot per character
+        assertTrue(ScanLayout.fontPx(ScanLayout.Box(0f, 0f, 100f, 60f), false, 5) <= 20f)
+    }
+
+    //under the month: days practiced and the best run inside that month only
+    @Test fun monthSummaryCountsRuns() {
+        val days = setOf("2026-10-01", "2026-10-02", "2026-10-03", "2026-10-07", "2026-10-08", "2026-09-30", "2026-11-01")
+        val m = ActivityLog.month(days, "2026-10-")
+        assertEquals(5, m.practiced)
+        assertEquals(3, m.bestRun)
+        assertEquals(ActivityLog.Month(0, 0), ActivityLog.month(days, "2026-08-"))
+    }
+
+    //tapping a flame shows that days numbers, only that days reviews count
+    @Test fun dayStatsForOneDay() {
+        val c = Calendar.getInstance().apply { set(2026, Calendar.OCTOBER, 8, 10, 0, 0) }
+        val key = ActivityLog.dayKey(c)
+        val other = (c.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, -1) }.timeInMillis
+        val log = listOf(
+            RevLog.Entry(c.timeInMillis, 1, 0, "d"), RevLog.Entry(c.timeInMillis, 3, 0, "d"),
+            RevLog.Entry(c.timeInMillis, 3, 0, "d"), RevLog.Entry(c.timeInMillis, 4, 0, "d"),
+            RevLog.Entry(other, 1, 0, "d")
+        )
+        val st = DayStats.of(key, ActivityLog.Day(accepted = 2, reviews = 4), log, mapOf("streak_3" to key, "kept_10" to "2026-01-01"))
+        assertEquals(listOf(1, 0, 2, 1), st.grades)
+        assertEquals(75, st.accuracy)
+        assertEquals(6, st.total)
+        assertEquals(listOf("streak_3"), st.achievements)
+        assertNull(DayStats.of(key, null, emptyList(), emptyMap()).accuracy)
     }
 
     @Test fun practiceHasTheFourGames() {

@@ -1,5 +1,9 @@
 package com.jideeh.kanjilock
 
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.animation.scaleIn
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.platform.LocalConfiguration
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -753,6 +757,46 @@ fun KanjiTile(text: String, size: Dp = 52.dp, highlight: Boolean = false) {
     }
 }
 
+//same tile but tapping it copies the word. the badge hangs off the corner so it never sits on the kanji, n flips to a check for a sec after
+@Composable
+fun CopyTile(text: String, size: Dp = 52.dp, highlight: Boolean = false) {
+    val ctx = LocalContext.current
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) { if (copied) { delay(1400); copied = false } }
+    val label = stringResource(R.string.copy_word_cd, text)
+    val badge = (size.value * 0.30f).coerceIn(18f, 26f).dp
+    val badgeBg by animateColorAsState(if (copied) Ink.Good else Ink.GlassHigh, label = "copybadge")
+    Box(Modifier.size(size)) {
+        Box(
+            Modifier
+                .matchParentSize()
+                .clip(RoundedCornerShape(12.dp))
+                .clickable(onClickLabel = label) {
+                    copyToClipboard(ctx, text)
+                    Haptics.tap(ctx)
+                    copied = true
+                }
+                .semantics { contentDescription = label }
+        ) {
+            KanjiTile(text, size, highlight)
+            AnimatedVisibility(copied, Modifier.align(Alignment.Center), enter = fadeIn() + scaleIn(initialScale = 0.85f), exit = fadeOut()) {
+                Text(
+                    stringResource(R.string.copied_short), style = MaterialTheme.typography.labelSmall, color = Ink.OnWhite,
+                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Ink.Good).padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+        //ring in the page colour so it reads as its own little button
+        Box(
+            Modifier.align(Alignment.BottomEnd).offset(x = badge * 0.3f, y = badge * 0.3f).size(badge)
+                .clip(CircleShape).background(Ink.BgMid).padding(2.dp).clip(CircleShape).background(badgeBg),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(if (copied) Ic.check else Ic.copy, null, tint = if (copied) Ink.OnWhite else Ink.Text, modifier = Modifier.size(badge * 0.52f))
+        }
+    }
+}
+
 @Composable
 fun EmptyState(glyph: String, title: String, body: String, modifier: Modifier = Modifier) {
     Column(
@@ -778,7 +822,14 @@ fun Dot(color: Color, size: Dp = 8.dp) = Box(Modifier.size(size).clip(CircleShap
 private val WEEKDAYS = listOf("S", "M", "T", "W", "T", "F", "S")
 
 @Composable
-fun StreakCalendar(days: Map<String, ActivityLog.Day>, goal: Int, expanded: Boolean, today: Calendar = Calendar.getInstance()) {
+fun StreakCalendar(
+    days: Map<String, ActivityLog.Day>,
+    goal: Int,
+    expanded: Boolean,
+    today: Calendar = Calendar.getInstance(),
+    selected: String? = null,
+    onPick: (String) -> Unit = {}
+) {
     AnimatedContent(
         targetState = expanded,
         transitionSpec = {
@@ -786,12 +837,12 @@ fun StreakCalendar(days: Map<String, ActivityLog.Day>, goal: Int, expanded: Bool
         },
         label = "calendar"
     ) { open ->
-        if (open) MonthGrid(days, goal, today) else WeekStrip(days, goal, today)
+        if (open) MonthGrid(days, goal, today, selected, onPick) else WeekStrip(days, goal, today, selected, onPick)
     }
 }
 
 @Composable
-private fun WeekStrip(active: Map<String, ActivityLog.Day>, goal: Int, today: Calendar) {
+private fun WeekStrip(active: Map<String, ActivityLog.Day>, goal: Int, today: Calendar, selected: String?, onPick: (String) -> Unit) {
     val start = (today.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, -(get(Calendar.DAY_OF_WEEK) - 1)) }
     Row(Modifier.fillMaxWidth()) {
         for (i in 0 until 7) {
@@ -799,27 +850,33 @@ private fun WeekStrip(active: Map<String, ActivityLog.Day>, goal: Int, today: Ca
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(WEEKDAYS[i], style = MaterialTheme.typography.labelMedium, color = Ink.Muted)
                 Spacer(Modifier.height(6.dp))
-                DayCell(d, active, goal, today, Modifier.size(42.dp))
+                DayCell(d, active, goal, today, Modifier.size(42.dp), selected, onPick)
             }
         }
     }
 }
 
 @Composable
-private fun MonthGrid(active: Map<String, ActivityLog.Day>, goal: Int, today: Calendar) {
+private fun MonthGrid(active: Map<String, ActivityLog.Day>, goal: Int, today: Calendar, selected: String?, onPick: (String) -> Unit) {
     var offset by remember { mutableIntStateOf(0) }
     val month = (today.clone() as Calendar).apply { set(Calendar.DAY_OF_MONTH, 1); add(Calendar.MONTH, offset) }
     val title = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(month.time)
     val lead = month.get(Calendar.DAY_OF_WEEK) - 1
     val days = month.getActualMaximum(Calendar.DAY_OF_MONTH)
     val prefix = SimpleDateFormat("yyyy-MM-", Locale.US).format(month.time)
-    val flames = active.keys.count { it.startsWith(prefix) }
+    val summary = ActivityLog.month(active.keys, prefix)
 
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium, color = Ink.Text)
-                Text("$flames flame ${if (flames == 1) "day" else "days"}", style = MaterialTheme.typography.labelMedium, color = Ink.Muted)
+                //like duolingo, how many days u showed up and ur best run that month
+                Text(
+                    if (summary.practiced == 0) stringResource(R.string.month_none)
+                    else pluralStringResource(R.plurals.month_practiced, summary.practiced, summary.practiced) +
+                        "  ·  " + stringResource(R.string.month_best_run, summary.bestRun),
+                    style = MaterialTheme.typography.labelMedium, color = Ink.Muted
+                )
             }
             GlassIconButton(Ic.chevronLeft, "Previous month", size = 34.dp) { offset-- }
             Spacer(Modifier.size(8.dp))
@@ -844,7 +901,7 @@ private fun MonthGrid(active: Map<String, ActivityLog.Day>, goal: Int, today: Ca
                     Box(Modifier.weight(1f).aspectRatio(1f).padding(2.dp), contentAlignment = Alignment.Center) {
                         if (idx in 1..days) {
                             val d = (month.clone() as Calendar).apply { set(Calendar.DAY_OF_MONTH, idx) }
-                            DayCell(d, active, goal, today, Modifier.fillMaxWidth().aspectRatio(1f))
+                            DayCell(d, active, goal, today, Modifier.fillMaxWidth().aspectRatio(1f), selected, onPick)
                         }
                     }
                 }
@@ -855,16 +912,28 @@ private fun MonthGrid(active: Map<String, ActivityLog.Day>, goal: Int, today: Ca
 
 //gray flame that fills orange from the bottom like a bucket, depends on how much u did
 @Composable
-private fun DayCell(d: Calendar, active: Map<String, ActivityLog.Day>, goal: Int, today: Calendar, modifier: Modifier) {
+private fun DayCell(
+    d: Calendar,
+    active: Map<String, ActivityLog.Day>,
+    goal: Int,
+    today: Calendar,
+    modifier: Modifier,
+    selected: String? = null,
+    onPick: (String) -> Unit = {}
+) {
     val key = ActivityLog.dayKey(d)
     val isToday = key == ActivityLog.dayKey(today)
     val isFuture = d.after(today) && !isToday
     val total = active[key]?.total ?: 0
     val fill = (total.toFloat() / goal.coerceAtLeast(1)).coerceIn(0f, 1f)
+    val picked = key == selected
     Box(
         modifier
             .clip(RoundedCornerShape(10.dp))
-            .background(if (isToday) Ink.GlassHigh else androidx.compose.ui.graphics.Color.Transparent),
+            .background(if (isToday) Ink.GlassHigh else androidx.compose.ui.graphics.Color.Transparent)
+            .border(if (picked) 2.dp else 0.dp, if (picked) Ink.Pill else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(10.dp))
+            //any day thats already happened can be tapped to see what u did
+            .then(if (isFuture) Modifier else Modifier.clickable { onPick(key) }),
         contentAlignment = Alignment.Center
     ) {
         if (!isFuture) FlameGauge(fill, Modifier.fillMaxWidth(0.78f).aspectRatio(1f), animated = isToday && total > 0)
@@ -1384,6 +1453,9 @@ object Ic {
     val sun by lazy { v("sun", "M6.76,4.84l-1.8,-1.79 -1.41,1.41 1.79,1.79 1.42,-1.41zM4,10.5H1v2h3v-2zM13,0.55h-2V3.5h2V0.55zM20.45,4.46l-1.41,-1.41 -1.79,1.79 1.41,1.41 1.79,-1.79zM17.24,18.16l1.79,1.8 1.41,-1.41 -1.8,-1.79 -1.4,1.4zM20,10.5v2h3v-2h-3zM12,5.5c-3.31,0 -6,2.69 -6,6s2.69,6 6,6 6,-2.69 6,-6 -2.69,-6 -6,-6zM11,22.45h2V19.5h-2v2.95zM3.55,18.54l1.41,1.41 1.79,-1.8 -1.41,-1.41 -1.79,1.8z") }
     val undo by lazy { v("undo", "M12.5,8c-2.65,0 -5.05,0.99 -6.9,2.6L2,7v9h9l-3.62,-3.62c1.39,-1.16 3.16,-1.88 5.12,-1.88 3.54,0 6.55,2.31 7.6,5.5l2.37,-0.78C21.08,11.03 17.15,8 12.5,8z") }
     val upload by lazy { v("upload", "M9,16h6v-6h4l-7,-7 -7,7h4zM5,18h14v2H5z") }
+    val copy by lazy { v("copy", "M16,1H4c-1.1,0 -2,0.9 -2,2v14h2V3h12V1zM19,5H8c-1.1,0 -2,0.9 -2,2v14c0,1.1 0.9,2 2,2h11c1.1,0 2,-0.9 2,-2V7c0,-1.1 -0.9,-2 -2,-2zM19,21H8V7h11v14z") }
+    val palette by lazy { v("palette", "M12,3c-4.97,0 -9,4.03 -9,9s4.03,9 9,9c0.83,0 1.5,-0.67 1.5,-1.5 0,-0.39 -0.15,-0.74 -0.39,-1.01 -0.23,-0.26 -0.38,-0.61 -0.38,-0.99 0,-0.83 0.67,-1.5 1.5,-1.5L16,16c2.76,0 5,-2.24 5,-5 0,-4.42 -4.03,-8 -9,-8zM6.5,12c-0.83,0 -1.5,-0.67 -1.5,-1.5S5.67,9 6.5,9 8,9.67 8,10.5 7.33,12 6.5,12zM9.5,8C8.67,8 8,7.33 8,6.5S8.67,5 9.5,5s1.5,0.67 1.5,1.5S10.33,8 9.5,8zM14.5,8c-0.83,0 -1.5,-0.67 -1.5,-1.5S13.67,5 14.5,5s1.5,0.67 1.5,1.5S15.33,8 14.5,8zM17.5,12c-0.83,0 -1.5,-0.67 -1.5,-1.5S16.67,9 17.5,9s1.5,0.67 1.5,1.5 -0.67,1.5 -1.5,1.5z") }
+    val gallery by lazy { v("gallery", "M22,16V4c0,-1.1 -0.9,-2 -2,-2H8c-1.1,0 -2,0.9 -2,2v12c0,1.1 0.9,2 2,2h12c1.1,0 2,-0.9 2,-2zM11,12l2.03,2.71L16,11l4,5H8l3,-4zM2,6v14c0,1.1 0.9,2 2,2h14v-2H4V6H2z") }
     val volume by lazy { v("volume", "M3,9v6h4l5,5V4L7,9H3zM16.5,12c0,-1.77 -1.02,-3.29 -2.5,-4.03v8.05c1.48,-0.73 2.5,-2.25 2.5,-4.02zM14,3.23v2.06c2.89,0.86 5,3.54 5,6.71s-2.11,5.85 -5,6.71v2.06c4.01,-0.91 7,-4.49 7,-8.77s-2.99,-7.86 -7,-8.77z") }
     val widgets by lazy { v("widgets", "M13,13v8h8v-8h-8zM3,21h8v-8H3v8zM3,3v8h8V3H3zM16.66,1.69L11,7.34 16.66,13l5.66,-5.66 -5.66,-5.65z") }
 }
